@@ -1,0 +1,15 @@
+{
+  "plan_id": "plan_v1_300",
+  "description": "5 distances x 5 target sizes x 6 directions x 2 repeats; target shapes are assigned deterministically",
+  "planned_trials": 300,
+  "distances_px": [150, 300, 450, 600, 750],
+  "target_sizes_px": [24, 32, 48, 64, 96],
+  "directions_deg": [0, 60, 120, 180, 240, 300],
+  "target_shapes": ["square", "rectangle_wide", "rectangle_tall"],
+  "repeats": 2,
+  "shuffle_trials": true,
+  "shuffle_seed": 20260428,
+  "practice_trials": 10,
+  "min_target_distance_px": 120,
+  "target_margin_px": 64
+}
