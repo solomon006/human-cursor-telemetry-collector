@@ -59,9 +59,10 @@ dataset/
 - `practice_start` / `practice_end`
 - `block_start` / `block_end`
 - `trial_start` / `trial_end`
-- `event` (события мыши: motion, button_down, button_up)
+- `event` (события мыши: motion, button_down, button_up — как в trial-контексте, так и в form-контексте)
 - `quality_event` (lost_focus, window_resized, missed_click)
-- `form_completed`
+- `form_start` / `form_completed`
+- `form_click`
 
 Пример:
 ```json
@@ -82,7 +83,7 @@ dataset/
 - `session_end.data`: `session_id`, `participant_id`, `t_us`, `ended_at_utc`, `duration_us`, `session_completed`, `quality` (финальные счётчики: `lost_focus_count`, `window_resize_count`, `total_trials`, `valid_trials`, `valid_session`).
 - `trial_start.data`: `trial_id`, индексы trial, `block_index`, `is_practice`, `trial_type`, `t_us`, `start_cursor`, `condition`, `target_acquisition_rule`, `target`, `placement`, `task_geometry`, `timing.target_shown_t_us`, опционально `previous_target_click`.
 - `trial_end.data`: итоговый `success`, финальные `timing`, `result`, `quality`, а также повтор ключевых полей trial (`condition`, `start_cursor`, `target`, `task_geometry`) для удобства нормализации.
-- `event.data`: общие поля события ввода (`event_id`, `participant_id`, `session_id`, `trial_id`, индексы события, timestamps, `position`, `buttons`, `state`, `raw`). В текущей v1-схеме `position` берется из `InputEventMouseMotion.position` / `InputEventMouseButton.position` в viewport pixels. Для `mouse_motion` дополнительно пишется `relative` из `InputEventMouseMotion.relative`; для событий кнопки дополнительно пишется `button`.
+- `event.data`: общие поля события ввода (`event_id`, `participant_id`, `session_id`, индексы события, timestamps, `position`, `buttons`, `raw`). В trial-контексте содержит `trial_id`, `event_index_trial`, `t_us_trial`, `phase` и `state`. В form-контексте вместо этого содержит `context: "form"`, `event_index_form`, `t_us_form` / `t_ms_form` (поля `trial_id`, `phase`, `state` отсутствуют). В текущей v1-схеме `position` берется из `InputEventMouseMotion.position` / `InputEventMouseButton.position` в viewport pixels. Для `mouse_motion` дополнительно пишется `relative` из `InputEventMouseMotion.relative`; для событий кнопки дополнительно пишется `button`.
 
 ---
 
@@ -421,13 +422,84 @@ dataset/
 ### `form_events.jsonl`
 События натуралистической фазы сбора данных. После завершения point-and-click заданий участнику предлагается заполнить стилизованную веб-форму (имитация реальной формы регистрации). Это позволяет собирать паттерны движения курсора в контексте, приближенном к реальному использованию интерфейсов.
 
-Пример:
+Форма содержит следующие интерактивные элементы: `email1_btn`, `email2_btn`, `country_option`, `agree_check`, `captcha_btn`, `captcha_box`, `submit_btn`.
+
+#### События мыши на форме
+
+Во время взаимодействия с формой непрерывно логируются все события мыши (motion, button_down, button_up) в том же формате `event`, что и в trial-контексте, но с дополнительными полями:
+- `context: "form"` — отличает от trial-событий.
+- `event_index_form` — порядковый номер события внутри формы (вместо `event_index_trial`).
+- `t_us_form` / `t_ms_form` — время относительно показа формы (вместо `t_us_trial` / `t_ms_trial`).
+- Поля `trial_id`, `phase`, `state` отсутствуют.
+
+#### `form_start`
+Записывается при загрузке экрана формы. Содержит начальную позицию курсора, размеры viewport и снимок bounding box всех интерактивных элементов.
+
+```json
+{
+  "kind": "form_start",
+  "session_id": "s_0001",
+  "participant_id": "p_0001",
+  "t_us": 186000000,
+  "cursor_pos": { "x": 960.0, "y": 540.0 },
+  "viewport": { "width": 1920, "height": 1080 },
+  "elements": {
+    "email1_btn": { "bbox": { "x": 735, "y": 280, "width": 450, "height": 38 }, "visible": true, "disabled": false },
+    "submit_btn": { "bbox": { "x": 735, "y": 620, "width": 180, "height": 45 }, "visible": true, "disabled": true }
+  }
+}
+```
+
+#### `form_click`
+Записывается при каждом отпускании левой кнопки мыши на экране формы. Содержит полную информацию для анализа по Fitts' law.
+
+```json
+{
+  "kind": "form_click",
+  "session_id": "s_0001",
+  "participant_id": "p_0001",
+  "form_click_index": 1,
+  "context": "form",
+  "t_us": 186050000,
+  "t_us_form": 50000,
+  "click_position": { "x": 850.0, "y": 295.0 },
+  "pointer_down_position": { "x": 849.5, "y": 294.8 },
+  "start_cursor": { "x": 960.0, "y": 540.0 },
+  "distance_from_last_click_px": 271.3,
+  "time_since_last_click_ms": null,
+  "click_hold_time_ms": 58.4,
+  "element": {
+    "element_id": "email1_btn",
+    "bbox": { "x": 735, "y": 280, "width": 450, "height": 38 },
+    "center": { "x": 960.0, "y": 299.0 },
+    "effective_width_px": 412.5,
+    "id_shannon": 0.89
+  },
+  "all_elements": {
+    "email1_btn": { "bbox": { "x": 735, "y": 280, "width": 450, "height": 38 }, "visible": true, "disabled": false },
+    "submit_btn": { "bbox": { "x": 735, "y": 620, "width": 180, "height": 45 }, "visible": true, "disabled": true }
+  }
+}
+```
+
+Поле `element` равно `null`, если клик произошёл вне всех интерактивных элементов. `all_elements` содержит актуальный снимок bbox и состояния всех элементов на момент клика (некоторые элементы, например `captcha_box`, могут менять `visible` в процессе).
+
+#### `form_completed`
+Записывается при нажатии кнопки «Продолжить».
+
 ```json
 {
   "kind": "form_completed",
   "session_id": "s_0001",
   "participant_id": "p_0001",
-  "t_us": 186200000
+  "t_us": 186200000,
+  "t_us_form": 200000,
+  "total_form_clicks": 5,
+  "total_form_events": 847,
+  "elements": {
+    "email1_btn": { "bbox": { "x": 735, "y": 280, "width": 450, "height": 38 }, "visible": true, "disabled": false },
+    "submit_btn": { "bbox": { "x": 735, "y": 620, "width": 180, "height": 45 }, "visible": true, "disabled": false }
+  }
 }
 ```
 

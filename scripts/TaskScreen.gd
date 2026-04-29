@@ -77,6 +77,10 @@ func _ready():
 	target_style.corner_radius_bottom_right = 4
 	target_style.corner_radius_top_left = 4
 	target_style.corner_radius_top_right = 4
+	target_style.content_margin_left = 0
+	target_style.content_margin_right = 0
+	target_style.content_margin_top = 0
+	target_style.content_margin_bottom = 0
 	target.add_theme_stylebox_override("normal", target_style)
 	
 	var hover_style = target_style.duplicate()
@@ -235,12 +239,7 @@ func _input(event):
 				if pointer_down_t_us == 0:
 					_add_invalid_reason("missing_pointer_down")
 					
-				# Расширяем зону попадания на 3 пикселя для учета микродвижений при отпускании кнопки
-				var padded_rect = target_rect.grow(3.0)
-				var pointer_up_inside = padded_rect.has_point(cursor_pos)
-				var pointer_down_inside_padded = padded_rect.has_point(pointer_down_pos)
-				
-				var success = pointer_down_inside_padded and pointer_up_inside
+				var success = target_rect.has_point(pointer_down_pos) and target_rect.has_point(cursor_pos)
 				if success:
 					finish_trial(true, cursor_pos)
 				else:
