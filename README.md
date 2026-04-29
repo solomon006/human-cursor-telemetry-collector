@@ -57,3 +57,4 @@ python3 tools/normalize_raw_sessions.py /path/to/raw_sessions -o dataset
 ```
 
 На выходе создаются `participants.jsonl`, `sessions.jsonl`, `trials.jsonl`, `input_events.jsonl` и дополнительные таблицы событий качества/блоков.
+
