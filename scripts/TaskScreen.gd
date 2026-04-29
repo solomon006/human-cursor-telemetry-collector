@@ -62,6 +62,10 @@ func _ready():
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
 
 	target.hide()
+	target.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	target.custom_minimum_size = Vector2.ZERO
+	target.clip_text = true
+	target.text = ""
 	var target_style = StyleBoxFlat.new()
 	target_style.bg_color = Color(0.2, 0.8, 0.3)
 	target_style.border_width_bottom = 2
@@ -230,8 +234,13 @@ func _input(event):
 			else:
 				if pointer_down_t_us == 0:
 					_add_invalid_reason("missing_pointer_down")
-				var pointer_up_inside = target_rect.has_point(cursor_pos)
-				var success = pointer_down_inside and pointer_up_inside
+					
+				# Расширяем зону попадания на 3 пикселя для учета микродвижений при отпускании кнопки
+				var padded_rect = target_rect.grow(3.0)
+				var pointer_up_inside = padded_rect.has_point(cursor_pos)
+				var pointer_down_inside_padded = padded_rect.has_point(pointer_down_pos)
+				
+				var success = pointer_down_inside_padded and pointer_up_inside
 				if success:
 					finish_trial(true, cursor_pos)
 				else:

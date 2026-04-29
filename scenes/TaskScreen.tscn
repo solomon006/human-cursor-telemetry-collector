@@ -22,7 +22,7 @@ color = Color(0.08, 0.08, 0.09, 1)
 
 [node name="Target" type="Button" parent="."]
 layout_mode = 0
-text = "Клик!"
+text = ""
 
 [node name="ProgressLabel" type="Label" parent="."]
 layout_mode = 1
