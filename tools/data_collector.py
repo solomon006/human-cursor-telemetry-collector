@@ -4,6 +4,15 @@ import sys
 import os
 import time
 import signal
+import ctypes
+
+# Автоматически завершаем работу на Linux, если родительский процесс (Godot) завершился/упал
+try:
+    libc = ctypes.CDLL(None)
+    # PR_SET_PDEATHSIG = 1, SIGTERM = 15
+    libc.prctl(1, 15)
+except Exception:
+    pass
 
 def handle_sigterm(*args):
     print("\nСбор данных остановлен (SIGTERM).")

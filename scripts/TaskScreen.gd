@@ -55,7 +55,7 @@ var entered_target_count = 0
 var left_target_after_enter = false
 
 func _ready():
-	Input.use_accumulated_input = false
+	Input.use_accumulated_input = true
 	screen_size = get_viewport_rect().size
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	cursor_pos = get_viewport().get_mouse_position()
