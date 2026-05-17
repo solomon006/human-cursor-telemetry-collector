@@ -6,9 +6,16 @@ from typing import List, Dict, Any
 
 def parse_evdev_csv(csv_path: str) -> List[Dict[str, Any]]:
     """
-    Парсит сырой CSV от ОС и группирует события по миллисекундам.
+    Парсит сырой CSV от ОС и группирует события по миллисекундам с отслеживанием состояния кнопок.
     """
     events = []
+    
+    # Состояние кнопок в реальном времени
+    btn_state = {
+        'left': False,
+        'right': False,
+        'middle': False
+    }
     
     with open(csv_path, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
@@ -28,7 +35,8 @@ def parse_evdev_csv(csv_path: str) -> List[Dict[str, Any]]:
                     't_us_abs': int(ts * 1_000_000),
                     'dx': 0.0,
                     'dy': 0.0,
-                    'clicks': []
+                    'clicks': [],
+                    'buttons_state': dict(btn_state)
                 }
             
             if row['event_type'] == 'MOVE':
@@ -37,7 +45,20 @@ def parse_evdev_csv(csv_path: str) -> List[Dict[str, Any]]:
                 elif row['axis'] == 'Y': 
                     current_group['dy'] += float(row['value'])
             elif row['event_type'] == 'CLICK':
-                current_group['clicks'].append((row['axis'], row['value']))
+                code = int(row['axis'])
+                val = int(row['value'])
+                current_group['clicks'].append((code, val))
+                
+                # Обновляем состояние кнопки
+                pressed = (val == 1)
+                if code == 272: # BTN_LEFT
+                    btn_state['left'] = pressed
+                elif code == 273: # BTN_RIGHT
+                    btn_state['right'] = pressed
+                elif code == 274: # BTN_MIDDLE
+                    btn_state['middle'] = pressed
+                
+                current_group['buttons_state'] = dict(btn_state)
             
             last_ts = ts
             
@@ -48,35 +69,80 @@ def parse_evdev_csv(csv_path: str) -> List[Dict[str, Any]]:
 
 def create_event_json(evdev_event: Dict, trial_meta: Dict, event_index: int) -> Dict:
     """
-    Создает объект события для фазы trial.
+    Создает объект события для фазы trial в строгом соответствии с docs/data_schema.md.
     """
-    is_click = len(evdev_event['clicks']) > 0
-    event_type = "mouse_button" if is_click else "mouse_motion"
+    clicks = evdev_event['clicks']
+    is_click = len(clicks) > 0
     
-    obj = {
-        "kind": "event",
-        "data": {
-            "event_id": f"e_sys_{event_index}",
-            "participant_id": trial_meta['p_id'],
-            "session_id": trial_meta['s_id'],
-            "trial_id": trial_meta['id'],
-            "event_index_global": event_index,
-            "event_index_trial": trial_meta['local_index'],
-            "event_type": event_type,
-            "t_us_abs": evdev_event['t_us_abs'],
-            "t_us_trial": evdev_event['t_us_abs'] - trial_meta['start_t'],
-            "t_ms_trial": (evdev_event['t_us_abs'] - trial_meta['start_t']) / 1000.0,
-            "relative": {
-                "dx": evdev_event['dx'],
-                "dy": evdev_event['dy']
-            },
-            "position": {"x": 0.0, "y": 0.0}, # Абсолютная позиция недоступна из evdev напрямую
-            "raw": {
-                "source": "evdev_os_level"
-            }
+    if is_click:
+        code, val = clicks[0]
+        event_type = "mouse_button_down" if val == 1 else "mouse_button_up"
+    else:
+        event_type = "mouse_motion"
+    
+    data = {
+        "event_id": f"e_sys_{event_index}",
+        "participant_id": trial_meta['p_id'],
+        "session_id": trial_meta['s_id'],
+        "trial_id": trial_meta['id'],
+        "event_index_global": event_index,
+        "event_index_trial": trial_meta['local_index'],
+        "event_type": event_type,
+        "phase": "movement",
+        "t_us_abs": evdev_event['t_us_abs'],
+        "t_us_trial": evdev_event['t_us_abs'] - trial_meta['start_t'],
+        "t_ms_trial": (evdev_event['t_us_abs'] - trial_meta['start_t']) / 1000.0,
+        "position": {"x": 0.0, "y": 0.0},
+        "relative": {
+            "dx": evdev_event['dx'],
+            "dy": evdev_event['dy']
+        },
+        "state": {
+            "cursor_inside_target": False,
+            "target_visible": True,
+            "left_viewport": False
+        },
+        "raw": {
+            "source": "evdev_os_level"
         }
     }
-    return obj
+    
+    if is_click:
+        code, val = clicks[0]
+        btn_index = 0
+        btn_name = "unknown"
+        if code == 272:
+            btn_index = 1
+            btn_name = "left"
+        elif code == 273:
+            btn_index = 2
+            btn_name = "right"
+        elif code == 274:
+            btn_index = 3
+            btn_name = "middle"
+            
+        data["button"] = {
+            "button_index": btn_index,
+            "button_name": btn_name,
+            "pressed": (val == 1)
+        }
+    else:
+        btn_state = evdev_event['buttons_state']
+        mask = 0
+        if btn_state['left']: mask |= 1
+        if btn_state['right']: mask |= 2
+        if btn_state['middle']: mask |= 4
+        data["buttons"] = {
+            "left": btn_state['left'],
+            "right": btn_state['right'],
+            "middle": btn_state['middle'],
+            "button_mask_raw": mask
+        }
+        
+    return {
+        "kind": "event",
+        "data": data
+    }
 
 def merge_logs(godot_jsonl_path: str, evdev_csv_path: str, output_path: str):
     """
