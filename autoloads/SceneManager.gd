@@ -9,8 +9,6 @@ var scenes = {
 	"instruction": "res://scenes/InstructionScreen.tscn",
 	"task": "res://scenes/TaskScreen.tscn",
 	"break": "res://scenes/BreakScreen.tscn",
-	"pre_form": "res://scenes/PreFormScreen.tscn",
-	"form": "res://scenes/FormScreen.tscn",
 	"thank_you": "res://scenes/ThankYouScreen.tscn"
 }
 

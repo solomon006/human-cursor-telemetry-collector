@@ -11,6 +11,10 @@ var flush_interval: int = 200
 var event_index_global: int = 0
 var trial_index_session: int = 0
 
+# Управление внешними Python процессами
+var data_collector_pid: int = -1
+var evdev_csv_path: String = ""
+
 # Session-level quality tracking
 var lost_focus_count: int = 0
 var window_resize_count: int = 0
@@ -37,9 +41,16 @@ func start_session():
 		dir.make_dir("raw_sessions")
 	
 	raw_session_path = "user://raw_sessions/" + ParticipantConfig.session_id + "_raw.jsonl"
+	evdev_csv_path = "user://raw_sessions/" + ParticipantConfig.session_id + "_evdev.csv"
 	log_file = FileAccess.open(raw_session_path, FileAccess.WRITE)
 	
 	if log_file:
+		var project_dir = ProjectSettings.globalize_path("res://")
+		var python_script = project_dir + "tools/data_collector.py"
+		var csv_out = ProjectSettings.globalize_path(evdev_csv_path)
+		data_collector_pid = OS.create_process("python3", [python_script, csv_out])
+		print("Started data collector with PID: ", data_collector_pid)
+		
 		session_active = true
 		session_started_t_us = get_current_unix_us()
 		event_index_global = 0
@@ -155,6 +166,24 @@ func end_session():
 		log_file.close()
 		log_file = null
 	session_active = false
+	
+	if data_collector_pid > 0:
+		OS.kill(data_collector_pid)
+		print("Killed data collector (PID: ", data_collector_pid, ")")
+		data_collector_pid = -1
+		
+		var project_dir = ProjectSettings.globalize_path("res://")
+		var compiler_script = project_dir + "tools/schema_compiler.py"
+		var godot_log = ProjectSettings.globalize_path(raw_session_path)
+		var os_log = ProjectSettings.globalize_path(evdev_csv_path)
+		var final_out = godot_log.replace("_raw.jsonl", "_fused.jsonl")
+		
+		print("Running schema compiler...")
+		var output = []
+		OS.execute("python3", [compiler_script, godot_log, os_log, final_out], output, true)
+		for line in output:
+			print(line)
+		print("Fusion complete! Saved to ", final_out)
 		
 func export_to_desktop():
 	if raw_session_path == "":
