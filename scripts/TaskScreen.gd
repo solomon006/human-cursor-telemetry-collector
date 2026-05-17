@@ -93,7 +93,7 @@ func _ready():
 
 	if ParticipantConfig.total_completed_trials >= AppConfig.total_trials:
 		DataLogger.end_session()
-		SceneManager.goto_scene("pre_form")
+		SceneManager.goto_scene("thank_you")
 		return
 
 	is_practice = ParticipantConfig.total_completed_trials == 0
@@ -106,7 +106,7 @@ func _ready():
 		DataLogger.log_event("practice_start", {
 			"session_id": ParticipantConfig.session_id,
 			"participant_id": ParticipantConfig.participant_id,
-			"t_us": Time.get_ticks_usec(),
+			"t_us": DataLogger.get_current_unix_us(),
 			"planned_practice_trials": AppConfig.practice_trials
 		})
 	else:
@@ -144,7 +144,7 @@ func spawn_target():
 	target.show()
 	_update_progress_label()
 
-	target_shown_t_us = Time.get_ticks_usec()
+	target_shown_t_us = DataLogger.get_current_unix_us()
 	current_trial_index = DataLogger.next_trial_index()
 	event_index_trial = 0
 	num_motion_events = 0
@@ -233,7 +233,7 @@ func _input(event):
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
 				pointer_down_pos = cursor_pos
-				pointer_down_t_us = Time.get_ticks_usec()
+				pointer_down_t_us = DataLogger.get_current_unix_us()
 				pointer_down_inside = target_rect.has_point(cursor_pos)
 			else:
 				if pointer_down_t_us == 0:
@@ -250,67 +250,27 @@ func _input(event):
 						"participant_id": ParticipantConfig.participant_id,
 						"trial_id": active_trial_id,
 						"event_type": "missed_click",
-						"t_us": Time.get_ticks_usec(),
+						"t_us": DataLogger.get_current_unix_us(),
 						"position": _vector_to_dict(cursor_pos)
 					})
 					pointer_down_t_us = 0
 					pointer_down_inside = false
 
 func log_mouse_event(event, type_str: String, pos: Vector2):
-	var event_t_us = Time.get_ticks_usec()
+	var event_t_us = DataLogger.get_current_unix_us()
 	_update_event_quality(event, event_t_us, pos)
 	_update_target_crossing(pos, event_t_us)
 
 	event_index_trial += 1
 	DataLogger.event_index_global += 1
 
-	var phase = _phase_for_event(event, type_str, pos)
-	var data = {
-		"event_id": "e_%08d" % DataLogger.event_index_global,
-		"participant_id": ParticipantConfig.participant_id,
-		"session_id": ParticipantConfig.session_id,
-		"trial_id": active_trial_id,
-		"event_index_global": DataLogger.event_index_global,
-		"event_index_trial": event_index_trial,
-		"event_type": type_str,
-		"phase": phase,
-		"t_us_abs": event_t_us,
-		"t_us_trial": event_t_us - target_shown_t_us,
-		"t_ms_trial": float(event_t_us - target_shown_t_us) / 1000.0,
-		"position": _vector_to_dict(pos),
-		"buttons": _buttons_to_dict(event.button_mask),
-		"state": {
-			"cursor_inside_target": target_rect.has_point(pos),
-			"target_visible": true,
-			"left_viewport": left_viewport
-		},
-		"raw": {
-			"godot_event_class": event.get_class(),
-			"event_position_x": event.position.x,
-			"event_position_y": event.position.y
-		}
-	}
-
-	if event is InputEventMouseMotion:
-		data["relative"] = {"dx": event.relative.x, "dy": event.relative.y}
-		data["raw"]["event_relative_x"] = event.relative.x
-		data["raw"]["event_relative_y"] = event.relative.y
-		data["raw"]["event_velocity_x"] = event.velocity.x
-		data["raw"]["event_velocity_y"] = event.velocity.y
-
-	if event is InputEventMouseButton:
-		data["button"] = {
-			"button_index": event.button_index,
-			"button_name": _button_name(event.button_index),
-			"pressed": event.pressed
-		}
-
-	DataLogger.log_event("event", data)
+	# var phase = _phase_for_event(event, type_str, pos)
+	# ... сырые события мыши больше не логируются в Godot
 
 func finish_trial(success: bool, pointer_up_pos: Vector2):
 	target.hide()
 	target_shown_t_us = 0 # Блокируем ввод до спавна следующей цели.
-	pointer_up_t_us = Time.get_ticks_usec()
+	pointer_up_t_us = DataLogger.get_current_unix_us()
 
 	if not success:
 		_add_invalid_reason("target_acquisition_failed")
@@ -414,7 +374,7 @@ func _start_block():
 		return
 
 	block_index = int(ParticipantConfig.total_completed_trials / max(1, AppConfig.trials_per_block)) + 1
-	block_start_t_us = Time.get_ticks_usec()
+	block_start_t_us = DataLogger.get_current_unix_us()
 	block_started = true
 	DataLogger.log_event("block_start", {
 		"session_id": ParticipantConfig.session_id,
@@ -433,8 +393,8 @@ func _end_current_block(reason: String):
 		"session_id": ParticipantConfig.session_id,
 		"participant_id": ParticipantConfig.participant_id,
 		"block_index": block_index,
-		"t_us": Time.get_ticks_usec(),
-		"duration_us": Time.get_ticks_usec() - block_start_t_us,
+		"t_us": DataLogger.get_current_unix_us(),
+		"duration_us": DataLogger.get_current_unix_us() - block_start_t_us,
 		"completed_trials_total": ParticipantConfig.total_completed_trials,
 		"reason": reason
 	})
@@ -536,15 +496,17 @@ func _trial_timing(trial_end_t_us: int) -> Dictionary:
 		"total_trial_time_ms": float(trial_end_t_us - target_shown_t_us) / 1000.0
 	}
 	if first_motion_t_us > 0:
-		dict["movement_start_t_us"] = first_motion_t_us
-		dict["reaction_time_ms"] = float(first_motion_t_us - target_shown_t_us) / 1000.0
+		pass
+		# dict["movement_start_t_us"] = first_motion_t_us
+		# dict["reaction_time_ms"] = float(first_motion_t_us - target_shown_t_us) / 1000.0
 	if target_enter_t_us > 0:
 		dict["target_enter_t_us"] = target_enter_t_us
 	if pointer_down_t_us > 0:
 		dict["pointer_down_t_us"] = pointer_down_t_us
 		dict["click_hold_time_ms"] = float(pointer_up_t_us - pointer_down_t_us) / 1000.0
 	if first_motion_t_us > 0 and pointer_down_t_us > 0:
-		dict["movement_time_ms"] = float(pointer_down_t_us - first_motion_t_us) / 1000.0
+		pass
+		# dict["movement_time_ms"] = float(pointer_down_t_us - first_motion_t_us) / 1000.0
 	return dict
 
 func _update_event_quality(event, event_t_us: int, pos: Vector2):
@@ -651,7 +613,7 @@ func _on_viewport_size_changed():
 			"participant_id": ParticipantConfig.participant_id,
 			"trial_id": active_trial_id,
 			"event_type": "window_resized",
-			"t_us": Time.get_ticks_usec(),
+			"t_us": DataLogger.get_current_unix_us(),
 			"viewport_width_px": screen_size.x,
 			"viewport_height_px": screen_size.y
 		})
@@ -666,7 +628,7 @@ func _notification(what):
 			"participant_id": ParticipantConfig.participant_id,
 			"trial_id": active_trial_id,
 			"event_type": "lost_focus",
-			"t_us": Time.get_ticks_usec()
+			"t_us": DataLogger.get_current_unix_us()
 		})
 
 func _unhandled_key_input(event):
@@ -683,7 +645,7 @@ func _unhandled_key_input(event):
 func _finish_experiment():
 	_end_current_block("experiment_completed")
 	DataLogger.end_session()
-	SceneManager.goto_scene("pre_form")
+	SceneManager.goto_scene("thank_you")
 
 func _update_progress_label():
 	if progress_label == null:

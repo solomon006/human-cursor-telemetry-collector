@@ -17,6 +17,9 @@ var window_resize_count: int = 0
 var total_trials_in_session: int = 0
 var valid_trials_in_session: int = 0
 
+func get_current_unix_us() -> int:
+	return int(Time.get_unix_time_from_system() * 1_000_000.0)
+
 func _notification(what):
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
 		end_session()
@@ -38,7 +41,7 @@ func start_session():
 	
 	if log_file:
 		session_active = true
-		session_started_t_us = Time.get_ticks_usec()
+		session_started_t_us = get_current_unix_us()
 		event_index_global = 0
 		trial_index_session = 0
 		events_since_flush = 0
@@ -80,9 +83,9 @@ func start_session():
 				"mouse_mode_name": _mouse_mode_name(Input.mouse_mode),
 				"position_source": "InputEventMouse.position",
 				"relative_source": "InputEventMouseMotion.relative",
-				"timestamp_source": "Time.get_ticks_usec",
-				"record_motion_events": true,
-				"record_button_events": true,
+				"timestamp_source": "Time.get_unix_time_from_system() * 1_000_000",
+				"record_motion_events": false,
+				"record_button_events": false,
 				"accumulated_input_disabled": not Input.use_accumulated_input,
 				"coordinate_system": {
 					"space": "viewport_pixels",
@@ -134,9 +137,9 @@ func end_session():
 	log_event("session_end", {
 		"session_id": ParticipantConfig.session_id,
 		"participant_id": ParticipantConfig.participant_id,
-		"t_us": Time.get_ticks_usec(),
+		"t_us": get_current_unix_us(),
 		"ended_at_utc": Time.get_datetime_string_from_system(true, true),
-		"duration_us": Time.get_ticks_usec() - session_started_t_us,
+		"duration_us": get_current_unix_us() - session_started_t_us,
 		"session_completed": is_completed,
 		"quality": {
 			"lost_focus_count": lost_focus_count,

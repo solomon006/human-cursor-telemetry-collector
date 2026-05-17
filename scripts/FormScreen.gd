@@ -59,7 +59,7 @@ func _ready():
 	# --- Telemetry init ---
 	cursor_pos = get_viewport().get_mouse_position()
 	last_click_pos = cursor_pos
-	form_shown_t_us = Time.get_ticks_usec()
+	form_shown_t_us = DataLogger.get_current_unix_us()
 
 	interactive_elements = {
 		"email1_btn": email1_btn,
@@ -99,53 +99,20 @@ func _input(event):
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
 				pointer_down_pos = cursor_pos
-				pointer_down_t_us = Time.get_ticks_usec()
+				pointer_down_t_us = DataLogger.get_current_unix_us()
 			else:
 				_log_form_click(cursor_pos)
 
 func _log_mouse_event(event, type_str: String, pos: Vector2):
-	var event_t_us = Time.get_ticks_usec()
+	var event_t_us = DataLogger.get_current_unix_us()
 	event_index_form += 1
 	DataLogger.event_index_global += 1
 
-	var data = {
-		"event_id": "e_%08d" % DataLogger.event_index_global,
-		"participant_id": ParticipantConfig.participant_id,
-		"session_id": ParticipantConfig.session_id,
-		"event_index_global": DataLogger.event_index_global,
-		"event_index_form": event_index_form,
-		"event_type": type_str,
-		"context": "form",
-		"t_us_abs": event_t_us,
-		"t_us_form": event_t_us - form_shown_t_us,
-		"t_ms_form": float(event_t_us - form_shown_t_us) / 1000.0,
-		"position": _vec(pos),
-		"buttons": _buttons_to_dict(event.button_mask),
-		"raw": {
-			"godot_event_class": event.get_class(),
-			"event_position_x": event.position.x,
-			"event_position_y": event.position.y
-		}
-	}
-
-	if event is InputEventMouseMotion:
-		data["relative"] = {"dx": event.relative.x, "dy": event.relative.y}
-		data["raw"]["event_relative_x"] = event.relative.x
-		data["raw"]["event_relative_y"] = event.relative.y
-		data["raw"]["event_velocity_x"] = event.velocity.x
-		data["raw"]["event_velocity_y"] = event.velocity.y
-
-	if event is InputEventMouseButton:
-		data["button"] = {
-			"button_index": event.button_index,
-			"button_name": _button_name(event.button_index),
-			"pressed": event.pressed
-		}
-
-	DataLogger.log_event("event", data)
+	# var data = ...
+	# DataLogger.log_event("event", data)
 
 func _log_form_click(pos: Vector2):
-	var now = Time.get_ticks_usec()
+	var now = DataLogger.get_current_unix_us()
 	form_click_index += 1
 	var clicked_element_id = _find_element_at(pos)
 
@@ -335,8 +302,8 @@ func _on_submit_pressed():
 	DataLogger.log_event("form_completed", {
 		"session_id": ParticipantConfig.session_id,
 		"participant_id": ParticipantConfig.participant_id,
-		"t_us": Time.get_ticks_usec(),
-		"t_us_form": Time.get_ticks_usec() - form_shown_t_us,
+		"t_us": DataLogger.get_current_unix_us(),
+		"t_us_form": DataLogger.get_current_unix_us() - form_shown_t_us,
 		"total_form_clicks": form_click_index,
 		"total_form_events": event_index_form,
 		"elements": _snapshot_all_elements()
