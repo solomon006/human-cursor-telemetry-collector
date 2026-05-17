@@ -80,14 +80,7 @@ func start_session():
 				"os_version": OS.get_version(),
 				"processor_arch": Engine.get_architecture_name()
 			},
-			"display": {
-				"window_width_px": get_viewport().size.x,
-				"window_height_px": get_viewport().size.y,
-				"viewport_width_px": get_viewport().size.x,
-				"viewport_height_px": get_viewport().size.y,
-				"screen_index": DisplayServer.window_get_current_screen(),
-				"window_mode": DisplayServer.window_get_mode()
-			},
+			"display": _get_display_info(),
 			"input": {
 				"input_source": "mouse",
 				"mouse_mode": Input.mouse_mode,
@@ -214,6 +207,30 @@ func export_to_desktop():
 		print("Файл успешно заархивирован на рабочий стол: ", dest_path)
 	else:
 		push_error("Ошибка при создании ZIP-архива: ", err)
+
+func _get_display_info() -> Dictionary:
+	var screen_index = DisplayServer.window_get_current_screen()
+	var screen_dpi = DisplayServer.screen_get_dpi(screen_index)
+	var screen_size_px = DisplayServer.screen_get_size(screen_index)
+	
+	var diagonal_inches = 0.0
+	if screen_dpi > 0:
+		var w_in = float(screen_size_px.x) / float(screen_dpi)
+		var h_in = float(screen_size_px.y) / float(screen_dpi)
+		diagonal_inches = sqrt(w_in * w_in + h_in * h_in)
+		
+	return {
+		"window_width_px": get_viewport().size.x,
+		"window_height_px": get_viewport().size.y,
+		"viewport_width_px": get_viewport().size.x,
+		"viewport_height_px": get_viewport().size.y,
+		"screen_index": screen_index,
+		"window_mode": DisplayServer.window_get_mode(),
+		"screen_width_px": screen_size_px.x,
+		"screen_height_px": screen_size_px.y,
+		"screen_dpi": screen_dpi,
+		"screen_diagonal_inches": snapped(diagonal_inches, 0.01)
+	}
 
 func _mouse_mode_name(mouse_mode: int) -> String:
 	match mouse_mode:
