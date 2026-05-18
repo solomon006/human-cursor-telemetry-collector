@@ -9,7 +9,7 @@ var age_group: String = ""
 var handedness: String = ""
 var device_type: String = ""
 var usual_mouse_hand: String = ""
-var mouse_dpi: int = 800
+var mouse_dpi_estimate: int = 800
 var mouse_experience: String = "normal"
 var total_completed_trials: int = 0
 
@@ -31,7 +31,7 @@ func get_participant_dict() -> Dictionary:
 		},
 		"self_report": {
 			"device_type": device_type,
-			"mouse_dpi": mouse_dpi,
+			"mouse_dpi_estimate": mouse_dpi_estimate,
 			"usual_mouse_hand": usual_mouse_hand,
 			"mouse_experience": mouse_experience
 		},
@@ -49,7 +49,7 @@ func save_state():
 			"age_group": age_group,
 			"handedness": handedness,
 			"device_type": device_type,
-			"mouse_dpi": mouse_dpi,
+			"mouse_dpi_estimate": mouse_dpi_estimate,
 			"usual_mouse_hand": usual_mouse_hand,
 			"mouse_experience": mouse_experience
 		}
@@ -68,7 +68,7 @@ func load_state() -> bool:
 			age_group = dict.get("age_group", "")
 			handedness = dict.get("handedness", "")
 			device_type = dict.get("device_type", "")
-			mouse_dpi = dict.get("mouse_dpi", 800)
+			mouse_dpi_estimate = dict.get("mouse_dpi_estimate", 800)
 			usual_mouse_hand = dict.get("usual_mouse_hand", "")
 			mouse_experience = dict.get("mouse_experience", "normal")
 			return true
@@ -104,6 +104,6 @@ func clear_state():
 	age_group = ""
 	handedness = ""
 	device_type = ""
-	mouse_dpi = 800
+	mouse_dpi_estimate = 800
 	usual_mouse_hand = ""
 	mouse_experience = "normal"

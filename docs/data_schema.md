@@ -111,6 +111,7 @@ dataset/
   "demographics": { "age_group": "18-24", "handedness": "right" },
   "self_report": {
     "device_type": "gaming_mouse",
+    "mouse_dpi_estimate": 1600,
     "usual_mouse_hand": "right",
     "mouse_experience": "normal"
   },
@@ -148,7 +149,11 @@ dataset/
     "viewport_width_px": 1920,
     "viewport_height_px": 1080,
     "screen_index": 0,
-    "window_mode": 4
+    "window_mode": 4,
+    "screen_width_px": 1920,
+    "screen_height_px": 1080,
+    "screen_dpi": 96,
+    "screen_diagonal_inches": 22.95
   },
   "input": {
     "input_source": "mouse",

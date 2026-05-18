@@ -55,7 +55,7 @@ func _on_continue_pressed():
 		3: dpi_val = 1600
 		4: dpi_val = 3200
 		5: dpi_val = 800
-	ParticipantConfig.mouse_dpi = dpi_val
+	ParticipantConfig.mouse_dpi_estimate = dpi_val
 	
 	# Генерируем ID участника
 	ParticipantConfig.generate_ids()
