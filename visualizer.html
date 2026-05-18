@@ -1019,9 +1019,13 @@
                     const data = obj.data;
                     if (!data) return;
 
+                    // Восстанавливаем поля из корня объекта в data для совместимости с остальным кодом
+                    if (obj.trial_id) data.trial_id = obj.trial_id;
+                    if (obj.t_us) data.t_us = obj.t_us;
+
                     if (kind === 'session_start') {
                         sessionData.session = data;
-                        sessionData.participant = data.participant_info;
+                        sessionData.participant = data.participant_info || obj.participant_id;
                     } 
                     else if (kind === 'session_end') {
                         if (sessionData.session) {
@@ -1047,8 +1051,12 @@
                             };
                         }
                     }
-                    else if (kind === 'event') {
+                    else if (kind === 'motion_evdev' || kind === 'motion_fused') {
                         rawEventsCount++;
+                        // For motion events, the t_us_trial might be at the root
+                        if (obj.t_us_trial !== undefined) data.t_us_trial = obj.t_us_trial;
+                        if (obj.position) data.position = obj.position;
+                        
                         const tId = data.trial_id;
                         if (tId) {
                             if (!tempEvents[tId]) tempEvents[tId] = [];
