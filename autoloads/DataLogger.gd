@@ -191,7 +191,12 @@ func export_to_desktop():
 		push_error("Не удалось найти путь к рабочему столу")
 		return
 	
-	var file_name = raw_session_path.get_file()
+	var fused_path = raw_session_path.replace("_raw.jsonl", "_fused.jsonl")
+	var target_path = raw_session_path
+	if FileAccess.file_exists(fused_path):
+		target_path = fused_path
+		
+	var file_name = target_path.get_file()
 	var zip_name = file_name.replace(".jsonl", ".zip")
 	var dest_path = desktop_path + "/" + zip_name
 	
@@ -199,7 +204,7 @@ func export_to_desktop():
 	var err = zipper.open(dest_path)
 	if err == OK:
 		zipper.start_file(file_name)
-		var f = FileAccess.open(raw_session_path, FileAccess.READ)
+		var f = FileAccess.open(target_path, FileAccess.READ)
 		if f:
 			zipper.write_file(f.get_buffer(f.get_length()))
 			f.close()
