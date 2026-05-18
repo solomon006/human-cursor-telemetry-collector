@@ -1214,18 +1214,18 @@
             generateTrajectory(trial);
 
             // Setup Scrubber and Playback Times
-            animCurrentTime = 0;
             animDuration = trial.actualDurationMs;
+            animCurrentTime = animDuration; // Показываем сразу всю траекторию!
             
-            currentTimeEl.innerText = '0.00s';
+            currentTimeEl.innerText = `${(animDuration / 1000.0).toFixed(2)}s`;
             totalTimeEl.innerText = `${(animDuration / 1000.0).toFixed(2)}s`;
-            playbackScrubber.value = 0;
+            playbackScrubber.value = 100;
 
             // Draw Velocity Graph
             resizeCanvas();
 
-            // Redraw viewport canvas (initial state)
-            drawViewport(0);
+            // Redraw viewport canvas (full path state)
+            drawViewport(animDuration);
         }
 
         // Populate Right Panel Info
@@ -1740,7 +1740,7 @@
                 animPauseTime = 0;
             }
             isPlaying = true;
-            animStartTime = 0;
+            animStartTime = null;
             animPauseTime = animCurrentTime;
             updatePlayIcon();
             animationFrameId = requestAnimationFrame(animate);
