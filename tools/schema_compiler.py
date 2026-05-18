@@ -67,7 +67,7 @@ def parse_evdev_csv(csv_path: str) -> List[Dict[str, Any]]:
             
     return events
 
-def create_event_json(evdev_event: Dict, trial_meta: Dict, event_index: int) -> Dict:
+def create_event_json(evdev_event: Dict, trial_meta: Dict, event_index: int, pos_x: float, pos_y: float) -> Dict:
     """
     Создает объект события для фазы trial в строгом соответствии с docs/data_schema.md.
     """
@@ -92,7 +92,7 @@ def create_event_json(evdev_event: Dict, trial_meta: Dict, event_index: int) -> 
         "t_us_abs": evdev_event['t_us_abs'],
         "t_us_trial": evdev_event['t_us_abs'] - trial_meta['start_t'],
         "t_ms_trial": (evdev_event['t_us_abs'] - trial_meta['start_t']) / 1000.0,
-        "position": {"x": 0.0, "y": 0.0},
+        "position": {"x": round(pos_x, 2), "y": round(pos_y, 2)},
         "relative": {
             "dx": evdev_event['dx'],
             "dy": evdev_event['dy']
@@ -181,7 +181,7 @@ def merge_logs(godot_jsonl_path: str, evdev_csv_path: str, output_path: str):
                         continue
                         
                     end_t_us = data.get('t_us')
-                    injected_count = 0
+                    trial_hw_events = []
                     
                     while hw_index < hw_total:
                         hw_ev = hardware_events[hw_index]
@@ -193,12 +193,39 @@ def merge_logs(godot_jsonl_path: str, evdev_csv_path: str, output_path: str):
                         if hw_ev['t_us_abs'] > end_t_us:
                             break
                             
-                        event_json = create_event_json(hw_ev, active_trial, global_event_counter)
+                        trial_hw_events.append(hw_ev)
+                        hw_index += 1
+                    
+                    # Интегрируем относительные координаты с endpoint-scaling сжатием/растяжением
+                    sum_dx = sum(ev['dx'] for ev in trial_hw_events)
+                    sum_dy = sum(ev['dy'] for ev in trial_hw_events)
+                    
+                    start_x = active_trial.get('start_x', 0.0)
+                    start_y = active_trial.get('start_y', 0.0)
+                    
+                    result_data = data.get('result', {})
+                    final_x = result_data.get('final_cursor_x', start_x)
+                    final_y = result_data.get('final_cursor_y', start_y)
+                    
+                    actual_dx = final_x - start_x
+                    actual_dy = final_y - start_y
+                    
+                    scale_x = actual_dx / sum_dx if abs(sum_dx) > 0.01 else 1.0
+                    scale_y = actual_dy / sum_dy if abs(sum_dy) > 0.01 else 1.0
+                    
+                    curr_x = start_x
+                    curr_y = start_y
+                    injected_count = 0
+                    
+                    for hw_ev in trial_hw_events:
+                        curr_x += hw_ev['dx'] * scale_x
+                        curr_y += hw_ev['dy'] * scale_y
+                        
+                        event_json = create_event_json(hw_ev, active_trial, global_event_counter, curr_x, curr_y)
                         outf.write(json.dumps(event_json) + '\n')
                         
                         global_event_counter += 1
                         active_trial['local_index'] += 1
-                        hw_index += 1
                         injected_count += 1
                     
                     # Записываем trial_end ТОЛЬКО ПОСЛЕ вставки движений
@@ -213,7 +240,9 @@ def merge_logs(godot_jsonl_path: str, evdev_csv_path: str, output_path: str):
                             'start_t': data.get('t_us'),
                             'p_id': data.get('participant_id', 'unknown'),
                             's_id': data.get('session_id', 'unknown'),
-                            'local_index': 1
+                            'local_index': 1,
+                            'start_x': data.get('start_cursor', {}).get('x', 0.0),
+                            'start_y': data.get('start_cursor', {}).get('y', 0.0)
                         }
 
         print(f"\nГотово! Финальный датасет сохранен в {output_path}")

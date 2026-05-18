@@ -1296,20 +1296,59 @@
             const tEvents = sessionData.events[trial.trial_id] || [];
 
             if (mode === 'raw' && tEvents.length > 0) {
-                // Parse and sort recorded raw events
-                // Sort by t_us_trial
+                // Parse and sort recorded raw events by t_us_trial
                 tEvents.sort((a, b) => (a.t_us_trial || 0) - (b.t_us_trial || 0));
                 
-                // Map to trajectoryPoints
-                tEvents.forEach((ev, idx) => {
-                    const tMs = (ev.t_us_trial || 0) / 1000.0;
-                    trajectoryPoints.push({
-                        x: ev.position.x,
-                        y: ev.position.y,
-                        t: tMs,
-                        v: 0 // Will compute velocity in a moment
+                // Проверяем, есть ли валидные абсолютные координаты (не все равны 0)
+                const hasValidAbsolutePositions = tEvents.some(ev => ev.position && (ev.position.x !== 0 || ev.position.y !== 0));
+                
+                if (hasValidAbsolutePositions) {
+                    tEvents.forEach((ev) => {
+                        const tMs = (ev.t_us_trial || 0) / 1000.0;
+                        trajectoryPoints.push({
+                            x: ev.position.x !== undefined ? ev.position.x : x0,
+                            y: ev.position.y !== undefined ? ev.position.y : y0,
+                            t: tMs,
+                            v: 0
+                        });
                     });
-                });
+                } else {
+                    // Восстанавливаем абсолютные координаты путем интегрирования relative dx/dy
+                    // с масштабированием до конечной точки клика (endpoint scaling)
+                    let sumDx = 0;
+                    let sumDy = 0;
+                    tEvents.forEach(ev => {
+                        const dx = ev.relative ? (ev.relative.dx !== undefined ? ev.relative.dx : (ev.relative.x || 0)) : 0;
+                        const dy = ev.relative ? (ev.relative.dy !== undefined ? ev.relative.dy : (ev.relative.y || 0)) : 0;
+                        sumDx += dx;
+                        sumDy += dy;
+                    });
+                    
+                    const actualDx = x1 - x0;
+                    const actualDy = y1 - y0;
+                    
+                    const scaleX = Math.abs(sumDx) > 0.01 ? (actualDx / sumDx) : 1.0;
+                    const scaleY = Math.abs(sumDy) > 0.01 ? (actualDy / sumDy) : 1.0;
+                    
+                    let currX = x0;
+                    let currY = y0;
+                    
+                    tEvents.forEach((ev) => {
+                        const tMs = (ev.t_us_trial || 0) / 1000.0;
+                        const dx = ev.relative ? (ev.relative.dx !== undefined ? ev.relative.dx : (ev.relative.x || 0)) : 0;
+                        const dy = ev.relative ? (ev.relative.dy !== undefined ? ev.relative.dy : (ev.relative.y || 0)) : 0;
+                        
+                        currX += dx * scaleX;
+                        currY += dy * scaleY;
+                        
+                        trajectoryPoints.push({
+                            x: currX,
+                            y: currY,
+                            t: tMs,
+                            v: 0
+                        });
+                    });
+                }
                 
                 // Compute velocities numerically for raw points
                 for (let i = 0; i < trajectoryPoints.length; i++) {
