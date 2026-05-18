@@ -878,6 +878,10 @@
                             <span class="info-label">Промах по координате</span>
                             <span class="info-value" id="valErrPx">-</span>
                         </div>
+                        <div class="info-row">
+                            <span class="info-label">Точек траектории</span>
+                            <span class="info-value" id="valPointsCount">-</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1267,6 +1271,7 @@
                 document.getElementById('valEnterTime').innerText = '-';
                 document.getElementById('valHoldTime').innerText = '-';
                 document.getElementById('valErrPx').innerText = '-';
+                document.getElementById('valPointsCount').innerText = '-';
             }
         }
 
@@ -1426,6 +1431,7 @@
                 }
             }
 
+            document.getElementById('valPointsCount').innerText = trajectoryPoints.length;
             graphPlaceholder.style.display = 'none';
         }
 
