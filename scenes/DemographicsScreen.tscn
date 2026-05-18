@@ -69,6 +69,13 @@ text = "Какой рукой вы сейчас держите мышь?"
 [node name="MouseHandOption" type="OptionButton" parent="VBoxContainer"]
 layout_mode = 2
 
+[node name="DpiLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+text = "DPI вашей мыши (оставьте 800, если не уверены):"
+
+[node name="DpiOption" type="OptionButton" parent="VBoxContainer"]
+layout_mode = 2
+
 [node name="Padding" type="Control" parent="VBoxContainer"]
 custom_minimum_size = Vector2(0, 30)
 layout_mode = 2

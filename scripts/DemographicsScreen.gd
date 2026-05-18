@@ -4,6 +4,7 @@ extends Control
 @onready var hand_option = $VBoxContainer/HandOption
 @onready var device_option = $VBoxContainer/DeviceOption
 @onready var mouse_hand_option = $VBoxContainer/MouseHandOption
+@onready var dpi_option = $VBoxContainer/DpiOption
 @onready var continue_button = $VBoxContainer/ContinueButton
 
 func _ready():
@@ -24,6 +25,14 @@ func _ready():
 	mouse_hand_option.add_item("Правой рукой")
 	mouse_hand_option.add_item("Левой рукой")
 	
+	dpi_option.add_item("400")
+	dpi_option.add_item("800 (Стандарт)")
+	dpi_option.add_item("1200")
+	dpi_option.add_item("1600")
+	dpi_option.add_item("3200")
+	dpi_option.add_item("Не знаю (оставить 800)")
+	dpi_option.select(1) # По умолчанию 800
+	
 	continue_button.pressed.connect(_on_continue_pressed)
 
 func _on_continue_pressed():
@@ -37,6 +46,16 @@ func _on_continue_pressed():
 		2: ParticipantConfig.device_type = "touchpad"
 		
 	ParticipantConfig.usual_mouse_hand = "right" if mouse_hand_option.selected == 0 else "left"
+	
+	var dpi_val = 800
+	match dpi_option.selected:
+		0: dpi_val = 400
+		1: dpi_val = 800
+		2: dpi_val = 1200
+		3: dpi_val = 1600
+		4: dpi_val = 3200
+		5: dpi_val = 800
+	ParticipantConfig.mouse_dpi = dpi_val
 	
 	# Генерируем ID участника
 	ParticipantConfig.generate_ids()
