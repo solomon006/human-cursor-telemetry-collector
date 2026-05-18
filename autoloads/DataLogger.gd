@@ -50,7 +50,12 @@ func start_session():
 	if log_file:
 		var python_script = ProjectSettings.globalize_path("user://tools/data_collector.py")
 		var csv_out = ProjectSettings.globalize_path(evdev_csv_path)
-		data_collector_pid = OS.create_process("python3", [python_script, csv_out])
+		# Запускаем data_collector на хосте через flatpak-spawn,
+		# т.к. внутри Flatpak-песочницы нет модуля evdev и доступа к /dev/input.
+		data_collector_pid = OS.create_process("flatpak-spawn", ["--host", "python3", python_script, csv_out])
+		if data_collector_pid <= 0:
+			push_warning("Не удалось запустить data_collector через flatpak-spawn. Пробуем напрямую...")
+			data_collector_pid = OS.create_process("python3", [python_script, csv_out])
 		print("Started data collector with PID: ", data_collector_pid)
 		
 		session_active = true
@@ -163,6 +168,9 @@ func end_session():
 	session_active = false
 	
 	if data_collector_pid > 0:
+		# Завершаем процесс на хосте через SIGTERM
+		var kill_output = []
+		OS.execute("flatpak-spawn", ["--host", "kill", str(data_collector_pid)], kill_output, true)
 		OS.kill(data_collector_pid)
 		print("Killed data collector (PID: ", data_collector_pid, ")")
 		data_collector_pid = -1
@@ -172,9 +180,17 @@ func end_session():
 		var os_log = ProjectSettings.globalize_path(evdev_csv_path)
 		var final_out = godot_log.replace("_raw.jsonl", "_fused.jsonl")
 		
+		# Даем data_collector время завершить flush на диск
+		OS.delay_msec(500)
+		
 		print("Running schema compiler...")
 		var output = []
-		OS.execute("python3", [compiler_script, godot_log, os_log, final_out], output, true)
+		# Компилятор тоже запускаем на хосте — внутри Flatpak может не быть нужных модулей
+		var exit_code = OS.execute("flatpak-spawn", ["--host", "python3", compiler_script, godot_log, os_log, final_out], output, true)
+		if exit_code != 0:
+			push_warning("flatpak-spawn schema_compiler failed (code %d), trying directly..." % exit_code)
+			output.clear()
+			exit_code = OS.execute("python3", [compiler_script, godot_log, os_log, final_out], output, true)
 		for line in output:
 			print(line)
 		print("Fusion complete! Saved to ", final_out)

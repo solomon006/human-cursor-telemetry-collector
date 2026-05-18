@@ -1,0 +1,1785 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MotorCursor Telemetry Visualizer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0d0e15;
+            --bg-secondary: #141622;
+            --bg-tertiary: #1b1e30;
+            --glass-bg: rgba(20, 22, 34, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.07);
+            --glass-glow: rgba(0, 240, 255, 0.15);
+            
+            --color-text: #e2e8f0;
+            --color-text-muted: #64748b;
+            
+            --neon-cyan: #00f0ff;
+            --neon-pink: #ff2a5f;
+            --neon-green: #39ff14;
+            --neon-purple: #bd00ff;
+            
+            --font-main: 'Outfit', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-primary);
+            color: var(--color-text);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(189, 0, 255, 0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(0, 240, 255, 0.1) 0px, transparent 50%);
+        }
+
+        /* Header */
+        header {
+            height: 70px;
+            border-bottom: 1px solid var(--glass-border);
+            background: rgba(13, 14, 21, 0.8);
+            backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            z-index: 10;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple));
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+            color: var(--bg-primary);
+        }
+
+        .logo-text h1 {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            background: linear-gradient(to right, #fff, var(--neon-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo-text span {
+            font-size: 11px;
+            color: var(--color-text-muted);
+            font-family: var(--font-mono);
+        }
+
+        .session-summary {
+            display: flex;
+            gap: 20px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+        }
+
+        .summary-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            padding: 6px 12px;
+            border-radius: 6px;
+        }
+
+        .summary-item span {
+            color: var(--neon-cyan);
+        }
+
+        /* Workspace Grid */
+        .workspace {
+            display: grid;
+            grid-template-columns: 360px 1fr 380px;
+            height: calc(100vh - 70px);
+            position: relative;
+        }
+
+        /* Left Panel - File and Trials */
+        .sidebar {
+            background: rgba(20, 22, 34, 0.4);
+            border-right: 1px solid var(--glass-border);
+            backdrop-filter: blur(16px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .panel-section {
+            padding: 20px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .panel-title {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--color-text-muted);
+            margin-bottom: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* Drop Zone */
+        .drop-zone {
+            border: 2px dashed var(--glass-border);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.01);
+        }
+
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: var(--neon-cyan);
+            background: rgba(0, 240, 255, 0.03);
+            box-shadow: inset 0 0 15px rgba(0, 240, 255, 0.05);
+        }
+
+        .drop-zone p {
+            font-size: 13px;
+            color: var(--color-text-muted);
+            margin-top: 8px;
+        }
+
+        .drop-zone-btn {
+            background: linear-gradient(135deg, var(--neon-cyan), rgba(0, 240, 255, 0.6));
+            color: var(--bg-primary);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: transform 0.2s ease;
+        }
+
+        .drop-zone-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* Participant Metadata */
+        .meta-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 12px;
+            font-family: var(--font-mono);
+        }
+
+        .meta-box {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--glass-border);
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        .meta-label {
+            color: var(--color-text-muted);
+            font-size: 10px;
+            margin-bottom: 2px;
+        }
+
+        .meta-val {
+            color: var(--color-text);
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* Trials List */
+        .trials-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .trial-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .trial-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: transparent;
+        }
+
+        .trial-card:hover {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .trial-card.active {
+            background: rgba(0, 240, 255, 0.03);
+            border-color: rgba(0, 240, 255, 0.3);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.05);
+        }
+
+        .trial-card.active::before {
+            background: var(--neon-cyan);
+        }
+
+        .trial-card.success.active::before {
+            background: var(--neon-cyan);
+        }
+
+        .trial-card.fail::before {
+            background: var(--neon-pink);
+        }
+
+        .trial-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .trial-num {
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .trial-badge {
+            font-size: 10px;
+            font-family: var(--font-mono);
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+
+        .badge-practice {
+            background: rgba(189, 0, 255, 0.15);
+            color: #d880ff;
+            border: 1px solid rgba(189, 0, 255, 0.3);
+        }
+
+        .badge-real {
+            background: rgba(0, 240, 255, 0.15);
+            color: var(--neon-cyan);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+        }
+
+        .trial-details-brief {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: var(--color-text-muted);
+            font-family: var(--font-mono);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 4px;
+        }
+
+        .status-success {
+            background: var(--neon-green);
+            box-shadow: 0 0 8px var(--neon-green);
+        }
+
+        .status-fail {
+            background: var(--neon-pink);
+            box-shadow: 0 0 8px var(--neon-pink);
+        }
+
+        /* Center Panel - Viewport & Playback */
+        .main-viewport-panel {
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            background: rgba(9, 10, 15, 0.4);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .canvas-container {
+            flex: 1;
+            background: #05060b;
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 40px rgba(0,0,0,0.8);
+        }
+
+        #viewportCanvas {
+            max-width: 100%;
+            max-height: 100%;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+            background-color: #08090f;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* Viewport Controls overlay */
+        .viewport-info {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            background: rgba(13, 14, 21, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--glass-border);
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-family: var(--font-mono);
+            pointer-events: none;
+            display: flex;
+            gap: 15px;
+            z-index: 5;
+        }
+
+        /* Playback controls panel */
+        .controls-panel {
+            margin-top: 20px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 15px 20px;
+            backdrop-filter: blur(12px);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .playback-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .play-buttons {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            color: var(--color-text);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .btn-icon:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .btn-icon:active {
+            transform: translateY(1px);
+        }
+
+        .btn-play {
+            background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple));
+            color: var(--bg-primary);
+            border: none;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+        }
+
+        .btn-play:hover {
+            background: linear-gradient(135deg, #5dfdff, #df54ff);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.5);
+            color: var(--bg-primary);
+        }
+
+        /* Scrubber Slider */
+        .scrubber-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+        }
+
+        .slider-bar {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .slider-bar::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--neon-cyan);
+            box-shadow: 0 0 8px var(--neon-cyan);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .slider-bar::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Speed and Mode selectors */
+        .config-row {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            font-size: 12px;
+        }
+
+        .config-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .config-label {
+            color: var(--color-text-muted);
+            font-weight: 500;
+        }
+
+        select, button.segmented-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--glass-border);
+            color: var(--color-text);
+            padding: 6px 12px;
+            border-radius: 6px;
+            outline: none;
+            font-family: var(--font-main);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        select:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        /* Right Panel - Details & Graphs */
+        .details-panel {
+            background: rgba(20, 22, 34, 0.4);
+            border-left: 1px solid var(--glass-border);
+            backdrop-filter: blur(16px);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        .info-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 14px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            margin-bottom: 8px;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+            padding-bottom: 6px;
+        }
+
+        .info-row:last-child {
+            margin-bottom: 0;
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .info-label {
+            color: var(--color-text-muted);
+        }
+
+        .info-value {
+            font-family: var(--font-mono);
+            font-weight: 500;
+        }
+
+        .info-value.success {
+            color: var(--neon-green);
+        }
+
+        .info-value.fail {
+            color: var(--neon-pink);
+        }
+
+        /* Graphs */
+        .graph-container {
+            margin-top: 10px;
+            background: #07080e;
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            height: 180px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #velocityCanvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .graph-placeholder {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--color-text-muted);
+            font-size: 13px;
+            font-style: italic;
+            pointer-events: none;
+            background: rgba(7, 8, 14, 0.8);
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .badge-success {
+            background: rgba(57, 255, 20, 0.15);
+            color: var(--neon-green);
+            border: 1px solid rgba(57, 255, 20, 0.3);
+        }
+
+        .badge-fail {
+            background: rgba(255, 42, 95, 0.15);
+            color: var(--neon-pink);
+            border: 1px solid rgba(255, 42, 95, 0.3);
+        }
+
+        /* Alert Box */
+        .alert-box {
+            background: rgba(0, 240, 255, 0.05);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-size: 12px;
+            color: #a5f3fc;
+            margin-bottom: 15px;
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+        }
+
+        .alert-icon {
+            font-size: 16px;
+            line-height: 1;
+        }
+        
+        .no-data-msg {
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--color-text-muted);
+            font-style: italic;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="logo-section">
+            <div class="logo-icon">M</div>
+            <div class="logo-text">
+                <h1>MotorCursor</h1>
+                <span>Telemetry Visualizer v1.0</span>
+            </div>
+        </div>
+        <div class="session-summary" id="sessionSummary">
+            <div class="summary-item">Участник: <span id="summaryPart">-</span></div>
+            <div class="summary-item">Экран: <span id="summaryScreen">-</span></div>
+            <div class="summary-item">Попыток: <span id="summaryTrials">-</span></div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="workspace">
+        
+        <!-- Left Panel: Files and List -->
+        <div class="sidebar">
+            <div class="panel-section">
+                <div class="panel-title">Загрузка данных</div>
+                
+                <div class="alert-box" id="infoAlert">
+                    <div class="alert-icon">ℹ️</div>
+                    <div>В этом сессионном логе отключена запись промежуточных координат. Траектория движения курсора воссоздана с помощью биомеханической <strong>модели минимального рывка (Minimum Jerk Trajectory)</strong> с добавлением естественного физиологического тремора мыши.</div>
+                </div>
+
+                <div class="drop-zone" id="dropZone">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--neon-cyan);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    <p id="dropText">Перетащите сюда JSONL лог</p>
+                    <button class="drop-zone-btn" onclick="document.getElementById('fileInput').click()">Выбрать файл</button>
+                    <input type="file" id="fileInput" accept=".jsonl" style="display: none;">
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title">Профиль участника</div>
+                <div class="meta-grid">
+                    <div class="meta-box">
+                        <div class="meta-label">ID участника</div>
+                        <div class="meta-val" id="metaPartId">-</div>
+                    </div>
+                    <div class="meta-box">
+                        <div class="meta-label">ID сессии</div>
+                        <div class="meta-val" id="metaSessId">-</div>
+                    </div>
+                    <div class="meta-box">
+                        <div class="meta-label">Возраст</div>
+                        <div class="meta-val" id="metaAge">-</div>
+                    </div>
+                    <div class="meta-box">
+                        <div class="meta-label">Рабочая рука</div>
+                        <div class="meta-val" id="metaHand">-</div>
+                    </div>
+                    <div class="meta-box">
+                        <div class="meta-label">Тип мыши</div>
+                        <div class="meta-val" id="metaMouse">-</div>
+                    </div>
+                    <div class="meta-box">
+                        <div class="meta-label">Оценка DPI</div>
+                        <div class="meta-val" id="metaDpi">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-title" style="padding: 15px 20px 5px 20px;">Список попыток (Trials)</div>
+            <div class="trials-container" id="trialsList">
+                <div class="no-data-msg">Пожалуйста, загрузите JSONL файл для отображения попыток.</div>
+            </div>
+        </div>
+
+        <!-- Center Panel: The Viewport Canvas -->
+        <div class="main-viewport-panel">
+            <div class="viewport-info" id="viewportInfo">
+                <div>Viewport: <span id="vpSize" style="color: var(--neon-cyan)">0 x 0</span></div>
+                <div>Condition ID: <span id="vpCondId" style="color: var(--neon-pink)">-</span></div>
+            </div>
+
+            <div class="canvas-container">
+                <canvas id="viewportCanvas" width="1920" height="1200"></canvas>
+            </div>
+
+            <!-- Playback Panel -->
+            <div class="controls-panel">
+                <div class="playback-row">
+                    <div class="play-buttons">
+                        <button class="btn-icon" id="btnPrev" title="Предыдущая попытка">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg>
+                        </button>
+                        <button class="btn-icon btn-play" id="btnPlay" title="Запуск/Пауза">
+                            <svg id="playIcon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                        </button>
+                        <button class="btn-icon" id="btnNext" title="Следующая попытка">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+                        </button>
+                    </div>
+
+                    <div class="scrubber-container">
+                        <span id="currentTime">0.00s</span>
+                        <input type="range" class="slider-bar" id="playbackScrubber" min="0" max="100" value="0">
+                        <span id="totalTime">0.00s</span>
+                    </div>
+                </div>
+
+                <div class="config-row">
+                    <div class="config-item">
+                        <span class="config-label">Скорость:</span>
+                        <select id="playSpeed">
+                            <option value="0.25">0.25x</option>
+                            <option value="0.5">0.5x</option>
+                            <option value="1" selected>1.0x (Реальная)</option>
+                            <option value="1.5">1.5x</option>
+                            <option value="2">2.0x</option>
+                        </select>
+                    </div>
+
+                    <div class="config-item">
+                        <span class="config-label">Режим траектории:</span>
+                        <select id="pathMode">
+                            <option value="simulated">Модель минимального рывка + Тремор (Human-Like)</option>
+                            <option value="raw" disabled id="optRaw">Записанные координаты (Raw)</option>
+                        </select>
+                    </div>
+
+                    <div class="config-item" style="margin-left: auto;">
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input type="checkbox" id="showTargetMargin" checked style="accent-color: var(--neon-cyan)">
+                            Показать зону поля допуска цели
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Geometry & Kinematics -->
+        <div class="details-panel">
+            <div class="panel-section">
+                <div class="panel-title">Характеристики попытки</div>
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-row">
+                            <span class="info-label">Идентификатор</span>
+                            <span class="info-value" id="valTrialId">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Статус попытки</span>
+                            <span class="trial-badge" id="valStatusBadge">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Форма цели</span>
+                            <span class="info-value" id="valTargetShape">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Ширина цели</span>
+                            <span class="info-value" id="valTargetW">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Высота цели</span>
+                            <span class="info-value" id="valTargetH">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title">Геометрия задачи (Закон Фиттса)</div>
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-row">
+                            <span class="info-label">Дистанция до цели</span>
+                            <span class="info-value" id="valDistance">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Индекс сложности (Shannon ID)</span>
+                            <span class="info-value" id="valShannonId" style="color: var(--neon-cyan); font-weight: 700;">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Индекс сложности (Classic ID)</span>
+                            <span class="info-value" id="valClassicId">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Направление движения</span>
+                            <span class="info-value" id="valAngle">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title">Результаты и тайминги</div>
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-row">
+                            <span class="info-label">Время попытки (Total)</span>
+                            <span class="info-value" id="valTotalTime">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Вход в зону цели</span>
+                            <span class="info-value" id="valEnterTime">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Удержание кнопки мыши</span>
+                            <span class="info-value" id="valHoldTime">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Промах по координате</span>
+                            <span class="info-value" id="valErrPx">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section" style="border-bottom: none; flex: 1; display: flex; flex-direction: column;">
+                <div class="panel-title">График скорости движений мыши</div>
+                <div class="graph-container">
+                    <div class="graph-placeholder" id="graphPlaceholder">Загрузите попытку для построения графика</div>
+                    <canvas id="velocityCanvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Telemetry Logic Script -->
+    <script>
+        // Global State
+        let sessionData = {
+            participant: null,
+            session: null,
+            trials: [],
+            events: {}, // key: trial_id, value: array of event objects
+            rawText: ''
+        };
+
+        let currentTrialIndex = -1;
+        let animationFrameId = null;
+        let isPlaying = false;
+        let animStartTime = 0;
+        let animPauseTime = 0;
+        let animCurrentTime = 0; // relative ms
+        let animDuration = 1000; // default 1s
+        let trajectoryPoints = []; // [{x, y, v, t}, ...]
+        
+        // DOM Elements
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const trialsList = document.getElementById('trialsList');
+        const viewportCanvas = document.getElementById('viewportCanvas');
+        const ctx = viewportCanvas.getContext('2d');
+        const velocityCanvas = document.getElementById('velocityCanvas');
+        const vCtx = velocityCanvas.getContext('2d');
+        const playIcon = document.getElementById('playIcon');
+        const playbackScrubber = document.getElementById('playbackScrubber');
+        const currentTimeEl = document.getElementById('currentTime');
+        const totalTimeEl = document.getElementById('totalTime');
+        const playSpeedEl = document.getElementById('playSpeed');
+        const pathModeEl = document.getElementById('pathMode');
+        const showTargetMarginEl = document.getElementById('showTargetMargin');
+        const graphPlaceholder = document.getElementById('graphPlaceholder');
+        const infoAlert = document.getElementById('infoAlert');
+        const optRaw = document.getElementById('optRaw');
+
+        // Initial setup
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Drag and drop events
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) handleFile(file);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) handleFile(file);
+        });
+
+        // Try auto-loading file from the current directory (for localhost servers)
+        fetch('s_20260518T040252Z_95e42d58e2d9c81a_raw.jsonl')
+            .then(res => {
+                if (res.ok) return res.blob();
+                throw new Error('Local file not found');
+            })
+            .then(blob => {
+                const file = new File([blob], 's_20260518T040252Z_95e42d58e2d9c81a_raw.jsonl');
+                handleFile(file);
+            })
+            .catch(err => {
+                console.log('Auto-load did not run: ', err.message);
+            });
+
+        function resizeCanvas() {
+            // Velocity Canvas size sync
+            velocityCanvas.width = velocityCanvas.parentElement.clientWidth;
+            velocityCanvas.height = velocityCanvas.parentElement.clientHeight;
+            if (trajectoryPoints.length > 0) {
+                drawVelocityGraph();
+            }
+        }
+
+        // File Handler
+        function handleFile(file) {
+            document.getElementById('dropText').innerText = file.name;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                parseJSONL(e.target.result);
+            };
+            reader.readAsText(file);
+        }
+
+        // JSONL Parser
+        function parseJSONL(text) {
+            sessionData.rawText = text;
+            const lines = text.split('\n');
+            
+            let tempTrials = {};
+            let tempEvents = {};
+            let startEventsMap = {}; // Maps trial_id to trial_start event to match them up
+            
+            sessionData.participant = null;
+            sessionData.session = null;
+            sessionData.trials = [];
+            sessionData.events = {};
+
+            let rawEventsCount = 0;
+
+            lines.forEach((line, idx) => {
+                if (!line.trim()) return;
+                try {
+                    const obj = JSON.parse(line);
+                    const kind = obj.kind;
+                    const data = obj.data;
+                    if (!data) return;
+
+                    if (kind === 'session_start') {
+                        sessionData.session = data;
+                        sessionData.participant = data.participant_info;
+                    } 
+                    else if (kind === 'session_end') {
+                        if (sessionData.session) {
+                            Object.assign(sessionData.session, data);
+                        }
+                    }
+                    else if (kind === 'trial_start') {
+                        startEventsMap[data.trial_id] = data;
+                        tempTrials[data.trial_id] = {
+                            trial_id: data.trial_id,
+                            start_data: data,
+                            end_data: null
+                        };
+                    }
+                    else if (kind === 'trial_end') {
+                        if (tempTrials[data.trial_id]) {
+                            tempTrials[data.trial_id].end_data = data;
+                        } else {
+                            tempTrials[data.trial_id] = {
+                                trial_id: data.trial_id,
+                                start_data: null,
+                                end_data: data
+                            };
+                        }
+                    }
+                    else if (kind === 'event') {
+                        rawEventsCount++;
+                        const tId = data.trial_id;
+                        if (tId) {
+                            if (!tempEvents[tId]) tempEvents[tId] = [];
+                            tempEvents[tId].push(data);
+                        }
+                    }
+                } catch (err) {
+                    console.error(`Ошибка разбора JSON на строке ${idx + 1}:`, err);
+                }
+            });
+
+            // Reconstruct trial list with start & end matching
+            const sortedTrialIds = Object.keys(tempTrials).sort((a, b) => {
+                const numA = parseInt(a.split('_').pop()) || 0;
+                const numB = parseInt(b.split('_').pop()) || 0;
+                return numA - numB;
+            });
+
+            sortedTrialIds.forEach(id => {
+                const t = tempTrials[id];
+                // Compute actual duration in ms from raw timestamps
+                let actualDurationMs = 1000; // fallback
+                if (t.start_data && t.end_data) {
+                    actualDurationMs = (t.end_data.t_us - t.start_data.t_us) / 1000.0;
+                } else if (t.end_data && t.end_data.timing && t.end_data.timing.total_trial_time_ms) {
+                    // fall back to total_trial_time_ms if it makes sense
+                    const tTime = t.end_data.timing.total_trial_time_ms;
+                    if (tTime > 0 && tTime < 300000) {
+                        actualDurationMs = tTime;
+                    }
+                }
+                
+                sessionData.trials.push({
+                    trial_id: id,
+                    start: t.start_data,
+                    end: t.end_data,
+                    actualDurationMs: actualDurationMs
+                });
+            });
+
+            sessionData.events = tempEvents;
+
+            // Update UI with metadata
+            updateMetadataUI();
+            
+            // Build trials list UI
+            buildTrialsListUI();
+
+            // Toggle raw option based on whether raw coordinates were recorded
+            if (rawEventsCount > 0) {
+                optRaw.disabled = false;
+                pathModeEl.value = 'raw';
+                infoAlert.style.display = 'none';
+            } else {
+                optRaw.disabled = true;
+                pathModeEl.value = 'simulated';
+                infoAlert.style.display = 'flex';
+            }
+
+            // Auto-select first trial
+            if (sessionData.trials.length > 0) {
+                selectTrial(0);
+            }
+        }
+
+        // Update Metadata
+        function updateMetadataUI() {
+            const p = sessionData.participant;
+            const s = sessionData.session;
+
+            if (p) {
+                document.getElementById('metaPartId').innerText = p.participant_id;
+                document.getElementById('metaAge').innerText = p.demographics?.age_group || 'Не указан';
+                document.getElementById('metaHand').innerText = p.demographics?.handedness === 'right' ? 'Правая' : p.demographics?.handedness === 'left' ? 'Левая' : p.demographics?.handedness || '-';
+                document.getElementById('metaMouse').innerText = p.self_report?.device_type || '-';
+                document.getElementById('metaDpi').innerText = p.self_report?.mouse_dpi_estimate || 'Неизвестно';
+                
+                document.getElementById('summaryPart').innerText = p.participant_id.substring(0, 12) + '...';
+            }
+
+            if (s) {
+                document.getElementById('metaSessId').innerText = s.session_id;
+                
+                const disp = s.display;
+                const dispStr = disp ? `${disp.screen_width_px}x${disp.screen_height_px} (${disp.screen_diagonal_inches || '-'}″, ${disp.screen_dpi} DPI)` : '-';
+                document.getElementById('summaryScreen').innerText = disp ? `${disp.screen_width_px}x${disp.screen_height_px}` : '-';
+                document.getElementById('summaryTrials').innerText = `${s.quality?.total_trials || 0} / ${s.experiment?.planned_trials || 0}`;
+
+                if (disp) {
+                    document.getElementById('vpSize').innerText = `${disp.viewport_width_px}x${disp.viewport_height_px} px`;
+                    // Setup viewport canvas logic scale
+                    viewportCanvas.width = disp.viewport_width_px;
+                    viewportCanvas.height = disp.viewport_height_px;
+                }
+            }
+        }
+
+        // Build Trials List
+        function buildTrialsListUI() {
+            trialsList.innerHTML = '';
+            if (sessionData.trials.length === 0) {
+                trialsList.innerHTML = '<div class="no-data-msg">Попыток не найдено</div>';
+                return;
+            }
+
+            sessionData.trials.forEach((trial, index) => {
+                const start = trial.start;
+                const end = trial.end;
+                
+                if (!start && !end) return;
+
+                const isPractice = start ? start.is_practice : (end ? end.is_practice : false);
+                const isSuccess = end ? end.success : false;
+                const cond = start ? start.condition : (end ? end.condition : {});
+                
+                const card = document.createElement('div');
+                card.className = `trial-card ${isSuccess ? 'success' : 'fail'}`;
+                card.dataset.index = index;
+                
+                let briefDetails = `d=${cond.distance_level_px} | w=${cond.target_size_level_px}`;
+                if (end && end.timing) {
+                    const durSec = (trial.actualDurationMs / 1000.0).toFixed(2);
+                    briefDetails += ` | ${durSec}с`;
+                }
+
+                card.innerHTML = `
+                    <div class="trial-header">
+                        <span class="trial-num">${isPractice ? 'Разминка' : 'Попытка'} #${index + 1}</span>
+                        <span class="trial-badge ${isPractice ? 'badge-practice' : 'badge-real'}">${isPractice ? 'Практика' : 'Эксперимент'}</span>
+                    </div>
+                    <div class="trial-details-brief">
+                        <span>${briefDetails}</span>
+                        <span>
+                            <span class="status-dot ${isSuccess ? 'status-success' : 'status-fail'}"></span>
+                            ${isSuccess ? 'Попал' : 'Промах'}
+                        </span>
+                    </div>
+                `;
+
+                card.addEventListener('click', () => {
+                    selectTrial(index);
+                });
+
+                trialsList.appendChild(card);
+            });
+        }
+
+        // Select Trial
+        function selectTrial(index) {
+            if (index < 0 || index >= sessionData.trials.length) return;
+            
+            // Highlight card
+            const cards = trialsList.querySelectorAll('.trial-card');
+            cards.forEach(c => c.classList.remove('active'));
+            if (cards[index]) cards[index].classList.add('active');
+
+            currentTrialIndex = index;
+            const trial = sessionData.trials[index];
+            
+            // Stop current playback
+            pausePlayback();
+
+            // Populate Right Panel Info
+            populateTrialDetails(trial);
+
+            // Compute/Build trajectory points
+            generateTrajectory(trial);
+
+            // Setup Scrubber and Playback Times
+            animCurrentTime = 0;
+            animDuration = trial.actualDurationMs;
+            
+            currentTimeEl.innerText = '0.00s';
+            totalTimeEl.innerText = `${(animDuration / 1000.0).toFixed(2)}s`;
+            playbackScrubber.value = 0;
+
+            // Draw Velocity Graph
+            resizeCanvas();
+
+            // Redraw viewport canvas (initial state)
+            drawViewport(0);
+        }
+
+        // Populate Right Panel Info
+        function populateTrialDetails(trial) {
+            const start = trial.start;
+            const end = trial.end;
+            const geom = start ? start.task_geometry : (end ? end.task_geometry : null);
+            const cond = start ? start.condition : (end ? end.condition : null);
+            const target = start ? start.target : (end ? end.target : null);
+            const success = end ? end.success : false;
+
+            document.getElementById('vpCondId').innerText = cond ? cond.condition_id : '-';
+            document.getElementById('valTrialId').innerText = trial.trial_id;
+            
+            const badge = document.getElementById('valStatusBadge');
+            badge.className = `trial-badge ${success ? 'badge-success' : 'badge-fail'}`;
+            badge.innerText = success ? 'УСПЕШНО' : 'ПРОМАХ';
+
+            document.getElementById('valTargetShape').innerText = translateShape(target?.shape);
+            document.getElementById('valTargetW').innerText = target?.bbox ? `${target.bbox.width} px` : '-';
+            document.getElementById('valTargetH').innerText = target?.bbox ? `${target.bbox.height} px` : '-';
+
+            if (geom) {
+                document.getElementById('valDistance').innerText = `${geom.distance_px ? geom.distance_px.toFixed(1) : '-'} px`;
+                document.getElementById('valShannonId').innerText = geom.id_shannon ? geom.id_shannon.toFixed(2) : '-';
+                document.getElementById('valClassicId').innerText = geom.id_classic ? geom.id_classic.toFixed(2) : '-';
+                document.getElementById('valAngle').innerText = `${geom.direction_deg ? geom.direction_deg.toFixed(1) : '-'}°`;
+            }
+
+            if (end && end.timing) {
+                document.getElementById('valTotalTime').innerText = `${(trial.actualDurationMs / 1000.0).toFixed(3)} сек`;
+                
+                const react = end.timing.reaction_time_ms;
+                document.getElementById('valEnterTime').innerText = end.timing.target_enter_t_us && start ? `${((end.timing.target_enter_t_us - start.t_us) / 1000.0).toFixed(0)} мс` : '-';
+                document.getElementById('valHoldTime').innerText = `${(end.timing.click_hold_time_ms).toFixed(1)} мс`;
+                document.getElementById('valErrPx').innerText = end.result?.endpoint_error_px ? `${end.result.endpoint_error_px.toFixed(1)} px` : '0.0 px';
+            } else {
+                document.getElementById('valTotalTime').innerText = '-';
+                document.getElementById('valEnterTime').innerText = '-';
+                document.getElementById('valHoldTime').innerText = '-';
+                document.getElementById('valErrPx').innerText = '-';
+            }
+        }
+
+        function translateShape(shape) {
+            if (!shape) return '-';
+            if (shape === 'square') return 'Квадрат';
+            if (shape === 'rectangle_wide') return 'Широкий прям.';
+            if (shape === 'rectangle_tall') return 'Высокий прям.';
+            return shape;
+        }
+
+        // Generate Trajectory (Simulated or Raw)
+        function generateTrajectory(trial) {
+            trajectoryPoints = [];
+            const start = trial.start;
+            const end = trial.end;
+            
+            if (!start || !end) return;
+
+            const x0 = start.start_cursor?.x ?? 0;
+            const y0 = start.start_cursor?.y ?? 0;
+            const x1 = end.result?.pointer_down_x ?? (end.result?.final_cursor_x ?? x0);
+            const y1 = end.result?.pointer_down_y ?? (end.result?.final_cursor_y ?? y0);
+            const T = trial.actualDurationMs;
+
+            const mode = pathModeEl.value;
+            const tEvents = sessionData.events[trial.trial_id] || [];
+
+            if (mode === 'raw' && tEvents.length > 0) {
+                // Parse and sort recorded raw events
+                // Sort by t_us_trial
+                tEvents.sort((a, b) => (a.t_us_trial || 0) - (b.t_us_trial || 0));
+                
+                // Map to trajectoryPoints
+                tEvents.forEach((ev, idx) => {
+                    const tMs = (ev.t_us_trial || 0) / 1000.0;
+                    trajectoryPoints.push({
+                        x: ev.position.x,
+                        y: ev.position.y,
+                        t: tMs,
+                        v: 0 // Will compute velocity in a moment
+                    });
+                });
+                
+                // Compute velocities numerically for raw points
+                for (let i = 0; i < trajectoryPoints.length; i++) {
+                    if (i === 0) {
+                        trajectoryPoints[i].v = 0;
+                    } else {
+                        const prev = trajectoryPoints[i-1];
+                        const curr = trajectoryPoints[i];
+                        const dx = curr.x - prev.x;
+                        const dy = curr.y - prev.y;
+                        const dt = (curr.t - prev.t) / 1000.0; // seconds
+                        
+                        if (dt > 0) {
+                            trajectoryPoints[i].v = Math.sqrt(dx*dx + dy*dy) / dt; // px/sec
+                        } else {
+                            trajectoryPoints[i].v = trajectoryPoints[i-1].v;
+                        }
+                    }
+                }
+            } else {
+                // Generate simulated Minimum Jerk Trajectory
+                // We sample points at 120Hz (every 8.33ms)
+                const sampleRateHz = 120;
+                const dt = 1000.0 / sampleRateHz;
+                const steps = Math.ceil(T / dt);
+
+                // Let's add natural human hand arc curvature
+                const dx = x1 - x0;
+                const dy = y1 - y0;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                const perpX = dist > 0 ? -dy / dist : 0;
+                const perpY = dist > 0 ? dx / dist : 0;
+                
+                // Randomize arc direction and amplitude (up to 3% of distance)
+                const seedRandom = x0 * y0 + T;
+                const randSign = Math.sin(seedRandom) > 0 ? 1 : -1;
+                const arcAmp = dist * 0.025 * randSign;
+
+                for (let i = 0; i <= steps; i++) {
+                    const t = Math.min(i * dt, T);
+                    const tau = T > 0 ? t / T : 1;
+                    
+                    // Minimum Jerk factor
+                    const tau3 = tau * tau * tau;
+                    const tau4 = tau3 * tau;
+                    const tau5 = tau4 * tau;
+                    const factor = 10 * tau3 - 15 * tau4 + 6 * tau5;
+
+                    // Micro-tremor simulation (combination of 6Hz and 10Hz sine waves)
+                    const tremorAmp = 1.2; // px
+                    const noiseX = Math.sin(t * 0.038) * Math.cos(t * 0.063) * tremorAmp;
+                    const noiseY = Math.sin(t * 0.045 + 1.2) * Math.cos(t * 0.052) * tremorAmp;
+
+                    // Path arc displacement
+                    const arcFactor = Math.sin(tau * Math.PI) * arcAmp;
+
+                    const pX = x0 + dx * factor + perpX * arcFactor + noiseX;
+                    const pY = y0 + dy * factor + perpY * arcFactor + noiseY;
+
+                    // Analytical velocity of minimum-jerk (magnified by arc & noise derivative)
+                    let v = 0;
+                    if (T > 0) {
+                        // Ideal MJ velocity magnitude
+                        const vMJ = (dist / (T / 1000.0)) * (30 * tau * tau - 60 * tau3 + 30 * tau4);
+                        // Add slight noise variance to velocity
+                        v = Math.max(0, vMJ + Math.sin(t * 0.08) * 50);
+                    }
+
+                    trajectoryPoints.push({
+                        x: pX,
+                        y: pY,
+                        t: t,
+                        v: v
+                    });
+                }
+            }
+
+            graphPlaceholder.style.display = 'none';
+        }
+
+        // Draw Viewport Canvas
+        function drawViewport(currentTimeMs) {
+            if (!sessionData.trials.length || currentTrialIndex === -1) return;
+            const trial = sessionData.trials[currentTrialIndex];
+            const start = trial.start;
+            const end = trial.end;
+            
+            if (!start) return;
+
+            const disp = sessionData.session?.display;
+            const w = disp ? disp.viewport_width_px : 1920;
+            const h = disp ? disp.viewport_height_px : 1200;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, w, h);
+
+            // Draw dark technical background grid
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.015)';
+            ctx.lineWidth = 1;
+            const gridSize = 40;
+            for (let x = 0; x < w; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, h);
+                ctx.stroke();
+            }
+            for (let y = 0; y < h; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
+            }
+
+            // Draw Start Center Ring
+            const x0 = start.start_cursor?.x ?? 0;
+            const y0 = start.start_cursor?.y ?? 0;
+
+            ctx.beginPath();
+            ctx.arc(x0, y0, 10, 0, 2 * Math.PI);
+            ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(x0, y0, 3, 0, 2 * Math.PI);
+            ctx.fillStyle = 'var(--neon-cyan)';
+            ctx.fill();
+
+            // Label "START"
+            ctx.fillStyle = 'var(--color-text-muted)';
+            ctx.font = '10px JetBrains Mono';
+            ctx.fillText('START', x0 - 15, y0 - 18);
+
+            // Draw Target Target
+            const target = start.target;
+            if (target && target.bbox) {
+                const box = target.bbox;
+
+                // Render success rules or margins if enabled
+                if (showTargetMarginEl.checked && start.experiment?.target_margin_px) {
+                    const margin = start.experiment.target_margin_px;
+                    ctx.strokeStyle = 'rgba(255, 42, 95, 0.15)';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([4, 4]);
+                    ctx.strokeRect(box.x - margin, box.y - margin, box.width + 2*margin, box.height + 2*margin);
+                    ctx.setLineDash([]);
+                }
+
+                // Render target box
+                ctx.fillStyle = 'rgba(255, 42, 95, 0.15)';
+                ctx.strokeStyle = 'var(--neon-pink)';
+                ctx.lineWidth = 2;
+                ctx.fillRect(box.x, box.y, box.width, box.height);
+                ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+                // Target center coordinate tick
+                ctx.beginPath();
+                ctx.moveTo(target.center_x - 5, target.center_y);
+                ctx.lineTo(target.center_x + 5, target.center_y);
+                ctx.moveTo(target.center_x, target.center_y - 5);
+                ctx.lineTo(target.center_x, target.center_y + 5);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            // Draw Endpoint click target
+            if (end) {
+                const finalX = end.result?.pointer_down_x ?? end.result?.final_cursor_x;
+                const finalY = end.result?.pointer_down_y ?? end.result?.final_cursor_y;
+                const success = end.success;
+
+                if (finalX !== undefined && finalY !== undefined) {
+                    ctx.beginPath();
+                    ctx.moveTo(finalX - 6, finalY - 6);
+                    ctx.lineTo(finalX + 6, finalY + 6);
+                    ctx.moveTo(finalX + 6, finalY - 6);
+                    ctx.lineTo(finalX - 6, finalY + 6);
+                    ctx.strokeStyle = success ? 'var(--neon-green)' : 'var(--neon-pink)';
+                    ctx.lineWidth = 2.5;
+                    ctx.stroke();
+
+                    // Tiny circle on target click endpoint
+                    ctx.beginPath();
+                    ctx.arc(finalX, finalY, 3, 0, 2 * Math.PI);
+                    ctx.fillStyle = success ? 'var(--neon-green)' : 'var(--neon-pink)';
+                    ctx.fill();
+                }
+            }
+
+            // Draw complete or partial trajectory path
+            if (trajectoryPoints.length > 0) {
+                ctx.beginPath();
+                ctx.moveTo(trajectoryPoints[0].x, trajectoryPoints[0].y);
+
+                const activePoints = trajectoryPoints.filter(p => p.t <= currentTimeMs);
+
+                for (let i = 1; i < activePoints.length; i++) {
+                    ctx.lineTo(activePoints[i].x, activePoints[i].y);
+                }
+
+                ctx.strokeStyle = 'rgba(0, 240, 255, 0.75)';
+                ctx.lineWidth = 2.5;
+                ctx.shadowColor = 'var(--neon-cyan)';
+                ctx.shadowBlur = 6;
+                ctx.stroke();
+                ctx.shadowBlur = 0; // reset shadow
+
+                // Draw moving dot
+                if (activePoints.length > 0) {
+                    const currentPos = activePoints[activePoints.length - 1];
+                    
+                    // Draw outer glowing halo
+                    ctx.beginPath();
+                    ctx.arc(currentPos.x, currentPos.y, 8, 0, 2 * Math.PI);
+                    ctx.fillStyle = 'rgba(0, 240, 255, 0.25)';
+                    ctx.fill();
+
+                    // Inner bright core
+                    ctx.beginPath();
+                    ctx.arc(currentPos.x, currentPos.y, 4, 0, 2 * Math.PI);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fill();
+                }
+            }
+        }
+
+        // Draw Velocity Graph
+        function drawVelocityGraph() {
+            if (trajectoryPoints.length === 0) return;
+
+            const w = velocityCanvas.width;
+            const height = velocityCanvas.height;
+            vCtx.clearRect(0, 0, w, height);
+
+            // Calculate scale factors
+            const maxT = animDuration;
+            const velocities = trajectoryPoints.map(p => p.v);
+            const maxV = Math.max(100, Math.max(...velocities) * 1.15); // Add padding at top
+
+            // Margins
+            const padLeft = 40;
+            const padRight = 15;
+            const padTop = 15;
+            const padBottom = 25;
+
+            const graphW = w - padLeft - padRight;
+            const graphH = height - padTop - padBottom;
+
+            // Draw technical axis grids
+            vCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            vCtx.lineWidth = 1;
+            
+            // X-Grid (Time)
+            const xTicks = 4;
+            for (let i = 0; i <= xTicks; i++) {
+                const tVal = (maxT * i) / xTicks;
+                const x = padLeft + (tVal / maxT) * graphW;
+                vCtx.beginPath();
+                vCtx.moveTo(x, padTop);
+                vCtx.lineTo(x, height - padBottom);
+                vCtx.stroke();
+
+                // Labels
+                vCtx.fillStyle = 'var(--color-text-muted)';
+                vCtx.font = '9px JetBrains Mono';
+                vCtx.fillText(`${(tVal / 1000.0).toFixed(2)}s`, x - 12, height - padBottom + 14);
+            }
+
+            // Y-Grid (Velocity)
+            const yTicks = 3;
+            for (let i = 0; i <= yTicks; i++) {
+                const vVal = (maxV * i) / yTicks;
+                const y = height - padBottom - (vVal / maxV) * graphH;
+                vCtx.beginPath();
+                vCtx.moveTo(padLeft, y);
+                vCtx.lineTo(w - padRight, y);
+                vCtx.stroke();
+
+                // Labels
+                vCtx.fillStyle = 'var(--color-text-muted)';
+                vCtx.font = '9px JetBrains Mono';
+                vCtx.fillText(`${Math.round(vVal)}`, 5, y + 3);
+            }
+
+            // Draw Velocity Curve
+            vCtx.beginPath();
+            const startX = padLeft + (trajectoryPoints[0].t / maxT) * graphW;
+            const startY = height - padBottom - (trajectoryPoints[0].v / maxV) * graphH;
+            vCtx.moveTo(startX, startY);
+
+            for (let i = 1; i < trajectoryPoints.length; i++) {
+                const p = trajectoryPoints[i];
+                const x = padLeft + (p.t / maxT) * graphW;
+                const y = height - padBottom - (p.v / maxV) * graphH;
+                vCtx.lineTo(x, y);
+            }
+
+            // Create linear neon gradient for velocity line
+            const grad = vCtx.createLinearGradient(padLeft, 0, w - padRight, 0);
+            grad.addColorStop(0, 'var(--neon-cyan)');
+            grad.addColorStop(1, 'var(--neon-purple)');
+
+            vCtx.strokeStyle = grad;
+            vCtx.lineWidth = 2;
+            vCtx.stroke();
+
+            // Fill under curve
+            vCtx.lineTo(padLeft + graphW, height - padBottom);
+            vCtx.lineTo(padLeft, height - padBottom);
+            vCtx.closePath();
+            
+            const fillGrad = vCtx.createLinearGradient(0, padTop, 0, height - padBottom);
+            fillGrad.addColorStop(0, 'rgba(0, 240, 255, 0.08)');
+            fillGrad.addColorStop(1, 'rgba(189, 0, 255, 0.00)');
+            vCtx.fillStyle = fillGrad;
+            vCtx.fill();
+
+            // Draw Vertical play scrubber bar line
+            const playX = padLeft + (animCurrentTime / maxT) * graphW;
+            vCtx.beginPath();
+            vCtx.moveTo(playX, padTop);
+            vCtx.lineTo(playX, height - padBottom);
+            vCtx.strokeStyle = 'var(--neon-pink)';
+            vCtx.lineWidth = 1.5;
+            vCtx.stroke();
+
+            // Handle tooltip circle overlaying velocity line at animCurrentTime
+            // Find nearest trajectory point
+            let nearestPoint = trajectoryPoints[0];
+            let minDist = Math.abs(nearestPoint.t - animCurrentTime);
+            for (let i = 1; i < trajectoryPoints.length; i++) {
+                const dist = Math.abs(trajectoryPoints[i].t - animCurrentTime);
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearestPoint = trajectoryPoints[i];
+                }
+            }
+
+            if (nearestPoint) {
+                const ptX = padLeft + (nearestPoint.t / maxT) * graphW;
+                const ptY = height - padBottom - (nearestPoint.v / maxV) * graphH;
+                
+                vCtx.beginPath();
+                vCtx.arc(ptX, ptY, 4, 0, 2 * Math.PI);
+                vCtx.fillStyle = 'var(--neon-pink)';
+                vCtx.fill();
+
+                // Velocity HUD Text
+                vCtx.fillStyle = 'var(--neon-pink)';
+                vCtx.font = '10px JetBrains Mono';
+                vCtx.fillText(`${Math.round(nearestPoint.v)} px/s`, ptX + 8, ptY - 8);
+            }
+        }
+
+        // Animation loop
+        function animate(timestamp) {
+            if (!isPlaying) return;
+
+            if (!animStartTime) animStartTime = timestamp;
+            const elapsed = timestamp - animStartTime;
+            
+            const speed = parseFloat(playSpeedEl.value);
+            animCurrentTime = animPauseTime + elapsed * speed;
+
+            if (animCurrentTime >= animDuration) {
+                animCurrentTime = animDuration;
+                isPlaying = false;
+                updatePlayIcon();
+            }
+
+            // Sync scrubber
+            playbackScrubber.value = (animCurrentTime / animDuration) * 100;
+            currentTimeEl.innerText = `${(animCurrentTime / 1000.0).toFixed(2)}s`;
+
+            // Draw frames
+            drawViewport(animCurrentTime);
+            drawVelocityGraph();
+
+            if (isPlaying) {
+                animationFrameId = requestAnimationFrame(animate);
+            }
+        }
+
+        function startPlayback() {
+            if (currentTrialIndex === -1) return;
+            if (animCurrentTime >= animDuration) {
+                animCurrentTime = 0;
+                animPauseTime = 0;
+            }
+            isPlaying = true;
+            animStartTime = 0;
+            animPauseTime = animCurrentTime;
+            updatePlayIcon();
+            animationFrameId = requestAnimationFrame(animate);
+        }
+
+        function pausePlayback() {
+            isPlaying = false;
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            animPauseTime = animCurrentTime;
+            updatePlayIcon();
+        }
+
+        function updatePlayIcon() {
+            if (isPlaying) {
+                playIcon.innerHTML = '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>';
+            } else {
+                playIcon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"></polygon>';
+            }
+        }
+
+        // Action Handlers
+        document.getElementById('btnPlay').addEventListener('click', () => {
+            if (isPlaying) {
+                pausePlayback();
+            } else {
+                startPlayback();
+            }
+        });
+
+        document.getElementById('btnPrev').addEventListener('click', () => {
+            if (currentTrialIndex > 0) {
+                selectTrial(currentTrialIndex - 1);
+            }
+        });
+
+        document.getElementById('btnNext').addEventListener('click', () => {
+            if (currentTrialIndex < sessionData.trials.length - 1) {
+                selectTrial(currentTrialIndex + 1);
+            }
+        });
+
+        playbackScrubber.addEventListener('input', (e) => {
+            const pct = parseFloat(e.target.value);
+            animCurrentTime = (pct / 100.0) * animDuration;
+            animPauseTime = animCurrentTime;
+            
+            currentTimeEl.innerText = `${(animCurrentTime / 1000.0).toFixed(2)}s`;
+            
+            drawViewport(animCurrentTime);
+            drawVelocityGraph();
+            
+            if (isPlaying) {
+                animStartTime = performance.now();
+            }
+        });
+
+        playSpeedEl.addEventListener('change', () => {
+            if (isPlaying) {
+                animStartTime = performance.now();
+                animPauseTime = animCurrentTime;
+            }
+        });
+
+        pathModeEl.addEventListener('change', () => {
+            if (currentTrialIndex !== -1) {
+                generateTrajectory(sessionData.trials[currentTrialIndex]);
+                drawViewport(animCurrentTime);
+                drawVelocityGraph();
+            }
+        });
+
+        showTargetMarginEl.addEventListener('change', () => {
+            drawViewport(animCurrentTime);
+        });
+
+    </script>
+</body>
+</html>
