@@ -21,6 +21,9 @@ var window_resize_count: int = 0
 var total_trials_in_session: int = 0
 var valid_trials_in_session: int = 0
 
+func _ready():
+	_extract_tools()
+
 func get_current_unix_us() -> int:
 	return int(Time.get_unix_time_from_system() * 1_000_000.0)
 
@@ -45,8 +48,7 @@ func start_session():
 	log_file = FileAccess.open(raw_session_path, FileAccess.WRITE)
 	
 	if log_file:
-		var project_dir = ProjectSettings.globalize_path("res://")
-		var python_script = project_dir + "tools/data_collector.py"
+		var python_script = ProjectSettings.globalize_path("user://tools/data_collector.py")
 		var csv_out = ProjectSettings.globalize_path(evdev_csv_path)
 		data_collector_pid = OS.create_process("python3", [python_script, csv_out])
 		print("Started data collector with PID: ", data_collector_pid)
@@ -165,8 +167,7 @@ func end_session():
 		print("Killed data collector (PID: ", data_collector_pid, ")")
 		data_collector_pid = -1
 		
-		var project_dir = ProjectSettings.globalize_path("res://")
-		var compiler_script = project_dir + "tools/schema_compiler.py"
+		var compiler_script = ProjectSettings.globalize_path("user://tools/schema_compiler.py")
 		var godot_log = ProjectSettings.globalize_path(raw_session_path)
 		var os_log = ProjectSettings.globalize_path(evdev_csv_path)
 		var final_out = godot_log.replace("_raw.jsonl", "_fused.jsonl")
@@ -246,3 +247,20 @@ func _mouse_mode_name(mouse_mode: int) -> String:
 			return "confined_hidden"
 		_:
 			return "unknown"
+
+func _extract_tools():
+	var dir = DirAccess.open("user://")
+	if dir and not dir.dir_exists("tools"):
+		dir.make_dir("tools")
+	
+	for script in ["data_collector.py", "schema_compiler.py", "normalize_raw_sessions.py"]:
+		var res_path = "res://tools/" + script
+		var user_path = "user://tools/" + script
+		var file_in = FileAccess.open(res_path, FileAccess.READ)
+		if file_in:
+			var content = file_in.get_as_text()
+			file_in.close()
+			var file_out = FileAccess.open(user_path, FileAccess.WRITE)
+			if file_out:
+				file_out.store_string(content)
+				file_out.close()
